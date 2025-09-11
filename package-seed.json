@@ -1,0 +1,12 @@
+{
+  "name": "seed-data",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "seed-data.js",
+  "scripts": {
+    "seed": "node seed-data.js"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.0.0"
+  }
+}

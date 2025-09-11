@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ทดสอบการเชื่อมต่อ API</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .success {
+            background-color: #d4edda;
+            border-color: #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background-color: #f8d7da;
+            border-color: #f5c6cb;
+            color: #721c24;
+        }
+        .info {
+            background-color: #d1ecf1;
+            border-color: #bee5eb;
+            color: #0c5460;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        pre {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 ทดสอบการเชื่อมต่อ API</h1>
+        
+        <div class="test-section info">
+            <h3>📋 ข้อมูลการทดสอบ</h3>
+            <p><strong>Frontend URL:</strong> <a href="https://stock-6e930.web.app" target="_blank">https://stock-6e930.web.app</a></p>
+            <p><strong>Backend URL:</strong> <a href="https://stock-scribe-backend-601202807478.asia-southeast1.run.app" target="_blank">https://stock-scribe-backend-601202807478.asia-southeast1.run.app</a></p>
+        </div>
+
+        <div class="test-section">
+            <h3>🔍 ทดสอบ Health Check</h3>
+            <button onclick="testHealthCheck()">ทดสอบ Health Check</button>
+            <button onclick="testCORS()">ทดสอบ CORS</button>
+            <div id="health-result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>🔐 ทดสอบ Authentication</h3>
+            <p>กรุณาล็อกอินใน Firebase ก่อนทดสอบ</p>
+            <button onclick="testAuth()">ทดสอบ Authentication</button>
+            <div id="auth-result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>📦 ทดสอบ API Endpoints</h3>
+            <button onclick="testSuppliers()">ทดสอบ Suppliers</button>
+            <button onclick="testProducts()">ทดสอบ Products</button>
+            <button onclick="testCategories()">ทดสอบ Categories</button>
+            <div id="api-result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>📊 สรุปผลการทดสอบ</h3>
+            <div id="summary"></div>
+        </div>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+
+        // Firebase config
+        const firebaseConfig = {
+            apiKey: "AIzaSyCsXLEXI4e_3hoK_Aef6EIOwygxTJGtLek",
+            authDomain: "stock-6e930.firebaseapp.com",
+            projectId: "stock-6e930",
+            storageBucket: "stock-6e930.firebasestorage.app",
+            messagingSenderId: "1067364434675",
+            appId: "1:1067364434675:web:453eed567f011715586d86"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+
+        // Global variables
+        let currentUser = null;
+        let testResults = {
+            health: false,
+            auth: false,
+            suppliers: false,
+            products: false,
+            categories: false
+        };
+
+        // Auth state listener
+        onAuthStateChanged(auth, (user) => {
+            currentUser = user;
+            if (user) {
+                console.log('✅ User logged in:', user.email);
+                document.getElementById('auth-result').innerHTML = 
+                    `<div class="success">✅ ผู้ใช้ล็อกอินแล้ว: ${user.email}</div>`;
+                testResults.auth = true;
+            } else {
+                console.log('❌ User not logged in');
+                document.getElementById('auth-result').innerHTML = 
+                    `<div class="error">❌ ผู้ใช้ยังไม่ได้ล็อกอิน</div>`;
+                testResults.auth = false;
+            }
+            updateSummary();
+        });
+
+        // Test functions
+        window.testCORS = async function() {
+            try {
+                const response = await fetch('https://stock-scribe-backend-601202807478.asia-southeast1.run.app/api/health', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                const data = await response.json();
+                
+                if (response.ok) {
+                    document.getElementById('health-result').innerHTML = 
+                        `<div class="success">✅ CORS ทำงานปกติ<br><pre>${JSON.stringify(data, null, 2)}</pre></div>`;
+                    testResults.health = true;
+                } else {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+            } catch (error) {
+                document.getElementById('health-result').innerHTML = 
+                    `<div class="error">❌ CORS Error<br>${error.message}</div>`;
+                testResults.health = false;
+            }
+            updateSummary();
+        };
+
+        window.testHealthCheck = async function() {
+            try {
+                const response = await fetch('https://stock-scribe-backend-601202807478.asia-southeast1.run.app/api/health');
+                const data = await response.json();
+                
+                if (response.ok) {
+                    document.getElementById('health-result').innerHTML = 
+                        `<div class="success">✅ Health Check สำเร็จ<br><pre>${JSON.stringify(data, null, 2)}</pre></div>`;
+                    testResults.health = true;
+                } else {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+            } catch (error) {
+                document.getElementById('health-result').innerHTML = 
+                    `<div class="error">❌ Health Check ล้มเหลว<br>${error.message}</div>`;
+                testResults.health = false;
+            }
+            updateSummary();
+        };
+
+        window.testAuth = async function() {
+            if (!currentUser) {
+                document.getElementById('auth-result').innerHTML = 
+                    `<div class="error">❌ กรุณาล็อกอินก่อนทดสอบ</div>`;
+                return;
+            }
+
+            try {
+                const idToken = await currentUser.getIdToken();
+                const response = await fetch('https://stock-scribe-backend-601202807478.asia-southeast1.run.app/api/test', {
+                    headers: {
+                        'Authorization': `Bearer ${idToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                const data = await response.json();
+                
+                if (response.ok) {
+                    document.getElementById('auth-result').innerHTML = 
+                        `<div class="success">✅ Authentication สำเร็จ<br><pre>${JSON.stringify(data, null, 2)}</pre></div>`;
+                    testResults.auth = true;
+                } else {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+            } catch (error) {
+                document.getElementById('auth-result').innerHTML = 
+                    `<div class="error">❌ Authentication ล้มเหลว<br>${error.message}</div>`;
+                testResults.auth = false;
+            }
+            updateSummary();
+        };
+
+        window.testSuppliers = async function() {
+            if (!currentUser) {
+                document.getElementById('api-result').innerHTML = 
+                    `<div class="error">❌ กรุณาล็อกอินก่อนทดสอบ API</div>`;
+                return;
+            }
+
+            try {
+                const idToken = await currentUser.getIdToken();
+                const response = await fetch('https://stock-scribe-backend-601202807478.asia-southeast1.run.app/api/suppliers', {
+                    headers: {
+                        'Authorization': `Bearer ${idToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                const data = await response.json();
+                
+                if (response.ok) {
+                    document.getElementById('api-result').innerHTML = 
+                        `<div class="success">✅ Suppliers API สำเร็จ<br><pre>${JSON.stringify(data, null, 2)}</pre></div>`;
+                    testResults.suppliers = true;
+                } else {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+            } catch (error) {
+                document.getElementById('api-result').innerHTML = 
+                    `<div class="error">❌ Suppliers API ล้มเหลว<br>${error.message}</div>`;
+                testResults.suppliers = false;
+            }
+            updateSummary();
+        };
+
+        window.testProducts = async function() {
+            if (!currentUser) {
+                document.getElementById('api-result').innerHTML = 
+                    `<div class="error">❌ กรุณาล็อกอินก่อนทดสอบ API</div>`;
+                return;
+            }
+
+            try {
+                const idToken = await currentUser.getIdToken();
+                const response = await fetch('https://stock-scribe-backend-601202807478.asia-southeast1.run.app/api/products', {
+                    headers: {
+                        'Authorization': `Bearer ${idToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                const data = await response.json();
+                
+                if (response.ok) {
+                    document.getElementById('api-result').innerHTML = 
+                        `<div class="success">✅ Products API สำเร็จ<br><pre>${JSON.stringify(data, null, 2)}</pre></div>`;
+                    testResults.products = true;
+                } else {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+            } catch (error) {
+                document.getElementById('api-result').innerHTML = 
+                    `<div class="error">❌ Products API ล้มเหลว<br>${error.message}</div>`;
+                testResults.products = false;
+            }
+            updateSummary();
+        };
+
+        window.testCategories = async function() {
+            if (!currentUser) {
+                document.getElementById('api-result').innerHTML = 
+                    `<div class="error">❌ กรุณาล็อกอินก่อนทดสอบ API</div>`;
+                return;
+            }
+
+            try {
+                const idToken = await currentUser.getIdToken();
+                const response = await fetch('https://stock-scribe-backend-601202807478.asia-southeast1.run.app/api/categories', {
+                    headers: {
+                        'Authorization': `Bearer ${idToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                const data = await response.json();
+                
+                if (response.ok) {
+                    document.getElementById('api-result').innerHTML = 
+                        `<div class="success">✅ Categories API สำเร็จ<br><pre>${JSON.stringify(data, null, 2)}</pre></div>`;
+                    testResults.categories = true;
+                } else {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+            } catch (error) {
+                document.getElementById('api-result').innerHTML = 
+                    `<div class="error">❌ Categories API ล้มเหลว<br>${error.message}</div>`;
+                testResults.categories = false;
+            }
+            updateSummary();
+        };
+
+        function updateSummary() {
+            const totalTests = Object.keys(testResults).length;
+            const passedTests = Object.values(testResults).filter(result => result).length;
+            const percentage = Math.round((passedTests / totalTests) * 100);
+            
+            let summaryHTML = `
+                <h4>📊 ผลการทดสอบ: ${passedTests}/${totalTests} (${percentage}%)</h4>
+                <ul>
+                    <li>Health Check: ${testResults.health ? '✅' : '❌'}</li>
+                    <li>Authentication: ${testResults.auth ? '✅' : '❌'}</li>
+                    <li>Suppliers API: ${testResults.suppliers ? '✅' : '❌'}</li>
+                    <li>Products API: ${testResults.products ? '✅' : '❌'}</li>
+                    <li>Categories API: ${testResults.categories ? '✅' : '❌'}</li>
+                </ul>
+            `;
+            
+            if (percentage === 100) {
+                summaryHTML += '<div class="success">🎉 การเชื่อมต่อ API ทำงานได้สมบูรณ์!</div>';
+            } else if (percentage >= 50) {
+                summaryHTML += '<div class="info">⚠️ การเชื่อมต่อ API ทำงานได้บางส่วน</div>';
+            } else {
+                summaryHTML += '<div class="error">❌ การเชื่อมต่อ API มีปัญหา</div>';
+            }
+            
+            document.getElementById('summary').innerHTML = summaryHTML;
+        }
+
+        // Auto test health check on load
+        window.addEventListener('load', () => {
+            setTimeout(testHealthCheck, 1000);
+        });
+    </script>
+</body>
+</html>

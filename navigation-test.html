@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ทดสอบการนำทางระบบ Stock Scribe Analyzer</title>
+    <style>
+        body {
+            font-family: 'Noto Sans Thai', sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .test-result {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .warning {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .loading {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .url-list {
+            list-style: none;
+            padding: 0;
+        }
+        .url-list li {
+            margin: 10px 0;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .url-list a {
+            color: #007bff;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        .url-list a:hover {
+            text-decoration: underline;
+        }
+        .status {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .status.working {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .status.testing {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+        .status.error {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        .feature-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .feature-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            border-left: 4px solid #007bff;
+        }
+        .feature-title {
+            font-weight: bold;
+            color: #007bff;
+            margin-bottom: 10px;
+        }
+        .feature-description {
+            font-size: 14px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧭 ทดสอบการนำทางระบบ Stock Scribe Analyzer</h1>
+        
+        <div class="test-section">
+            <h2>✨ ฟีเจอร์การนำทางใหม่</h2>
+            <div class="feature-list">
+                <div class="feature-card">
+                    <div class="feature-title">🎯 Navigation Context</div>
+                    <div class="feature-description">จัดการการนำทางแบบรวมศูนย์ พร้อมป้องกันการนำทางซ้ำ</div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-title">⏳ Loading States</div>
+                    <div class="feature-description">แสดงสถานะการโหลดระหว่างการเปลี่ยนหน้า</div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-title">🔄 Page Transitions</div>
+                    <div class="feature-description">การเปลี่ยนหน้าที่ราบรื่นด้วย animation</div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-title">🍞 Breadcrumb Navigation</div>
+                    <div class="feature-description">แสดงเส้นทางการนำทางปัจจุบัน</div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-title">⬅️➡️ Back/Forward</div>
+                    <div class="feature-description">ปุ่มย้อนกลับและไปข้างหน้า</div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-title">📱 Mobile Optimized</div>
+                    <div class="feature-description">การนำทางที่เหมาะสำหรับมือถือ</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2>🌐 ทดสอบการเปลี่ยนหน้า</h2>
+            <button onclick="testAllPages()">ทดสอบทุกหน้า</button>
+            <div id="page-test-result"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>🔗 ลิงก์ไปยังหน้าเว็บทั้งหมด</h2>
+            <ul class="url-list">
+                <li>
+                    <a href="https://stock-6e930.web.app" target="_blank">🏠 หน้าหลัก</a>
+                    <span class="status working" id="status-home">กำลังทดสอบ</span>
+                </li>
+                <li>
+                    <a href="https://stock-6e930.web.app/#/login" target="_blank">🔐 หน้า Login</a>
+                    <span class="status working" id="status-login">กำลังทดสอบ</span>
+                </li>
+                <li>
+                    <a href="https://stock-6e930.web.app/#/dashboard" target="_blank">📊 หน้า Dashboard</a>
+                    <span class="status working" id="status-dashboard">กำลังทดสอบ</span>
+                </li>
+                <li>
+                    <a href="https://stock-6e930.web.app/#/products" target="_blank">📦 หน้า Products</a>
+                    <span class="status working" id="status-products">กำลังทดสอบ</span>
+                </li>
+                <li>
+                    <a href="https://stock-6e930.web.app/#/categories" target="_blank">📂 หน้า Categories</a>
+                    <span class="status working" id="status-categories">กำลังทดสอบ</span>
+                </li>
+                <li>
+                    <a href="https://stock-6e930.web.app/#/suppliers" target="_blank">🏢 หน้า Suppliers</a>
+                    <span class="status working" id="status-suppliers">กำลังทดสอบ</span>
+                </li>
+                <li>
+                    <a href="https://stock-6e930.web.app/#/movements" target="_blank">📈 หน้า Movements</a>
+                    <span class="status working" id="status-movements">กำลังทดสอบ</span>
+                </li>
+                <li>
+                    <a href="https://stock-6e930.web.app/#/scanner" target="_blank">📱 หน้า Scanner</a>
+                    <span class="status working" id="status-scanner">กำลังทดสอบ</span>
+                </li>
+                <li>
+                    <a href="https://stock-6e930.web.app/#/budget-request" target="_blank">💰 หน้า Budget Requests</a>
+                    <span class="status working" id="status-budget">กำลังทดสอบ</span>
+                </li>
+                <li>
+                    <a href="https://stock-6e930.web.app/#/approval" target="_blank">✅ หน้า Approval</a>
+                    <span class="status working" id="status-approval">กำลังทดสอบ</span>
+                </li>
+                <li>
+                    <a href="https://stock-6e930.web.app/#/approval/list" target="_blank">📋 หน้า Approval History</a>
+                    <span class="status working" id="status-approval-history">กำลังทดสอบ</span>
+                </li>
+                <li>
+                    <a href="https://stock-6e930.web.app/#/reports" target="_blank">📊 หน้า Reports</a>
+                    <span class="status working" id="status-reports">กำลังทดสอบ</span>
+                </li>
+                <li>
+                    <a href="https://stock-6e930.web.app/#/settings" target="_blank">⚙️ หน้า Settings</a>
+                    <span class="status working" id="status-settings">กำลังทดสอบ</span>
+                </li>
+            </ul>
+        </div>
+
+        <div class="test-section">
+            <h2>🎯 คำแนะนำการใช้งาน</h2>
+            <div class="test-result success">
+                <h3>✅ การใช้งานการนำทางใหม่:</h3>
+                <ul>
+                    <li><strong>คลิกเมนู:</strong> ระบบจะแสดง loading state และเปลี่ยนหน้าอย่างราบรื่น</li>
+                    <li><strong>Breadcrumb:</strong> แสดงเส้นทางการนำทางปัจจุบันที่ด้านบน</li>
+                    <li><strong>ปุ่มย้อนกลับ:</strong> ใช้ปุ่ม ⬅️ เพื่อย้อนกลับไปหน้าก่อนหน้า</li>
+                    <li><strong>ปุ่มไปข้างหน้า:</strong> ใช้ปุ่ม ➡️ เพื่อไปหน้าถัดไป</li>
+                    <li><strong>ปุ่มรีเฟรช:</strong> ใช้ปุ่ม 🔄 เพื่อรีเฟรชหน้า</li>
+                    <li><strong>การเปลี่ยนหน้า:</strong> มี animation ที่ราบรื่นระหว่างการเปลี่ยนหน้า</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function testAllPages() {
+            const resultDiv = document.getElementById('page-test-result');
+            resultDiv.innerHTML = '<div class="test-result loading">กำลังทดสอบทุกหน้า...</div>';
+            
+            const pages = [
+                { name: 'หน้าหลัก', url: 'https://stock-6e930.web.app', id: 'status-home' },
+                { name: 'Login', url: 'https://stock-6e930.web.app/#/login', id: 'status-login' },
+                { name: 'Dashboard', url: 'https://stock-6e930.web.app/#/dashboard', id: 'status-dashboard' },
+                { name: 'Products', url: 'https://stock-6e930.web.app/#/products', id: 'status-products' },
+                { name: 'Categories', url: 'https://stock-6e930.web.app/#/categories', id: 'status-categories' },
+                { name: 'Suppliers', url: 'https://stock-6e930.web.app/#/suppliers', id: 'status-suppliers' },
+                { name: 'Movements', url: 'https://stock-6e930.web.app/#/movements', id: 'status-movements' },
+                { name: 'Scanner', url: 'https://stock-6e930.web.app/#/scanner', id: 'status-scanner' },
+                { name: 'Budget Requests', url: 'https://stock-6e930.web.app/#/budget-request', id: 'status-budget' },
+                { name: 'Approval', url: 'https://stock-6e930.web.app/#/approval', id: 'status-approval' },
+                { name: 'Approval History', url: 'https://stock-6e930.web.app/#/approval/list', id: 'status-approval-history' },
+                { name: 'Reports', url: 'https://stock-6e930.web.app/#/reports', id: 'status-reports' },
+                { name: 'Settings', url: 'https://stock-6e930.web.app/#/settings', id: 'status-settings' }
+            ];
+            
+            let results = [];
+            let successCount = 0;
+            
+            for (const page of pages) {
+                try {
+                    const response = await fetch(page.url);
+                    const statusElement = document.getElementById(page.id);
+                    
+                    if (response.ok) {
+                        statusElement.textContent = '✅ ทำงาน';
+                        statusElement.className = 'status working';
+                        successCount++;
+                        results.push(`✅ ${page.name} - ทำงานปกติ`);
+                    } else {
+                        statusElement.textContent = '❌ ผิดพลาด';
+                        statusElement.className = 'status error';
+                        results.push(`❌ ${page.name} - ผิดพลาด (${response.status})`);
+                    }
+                } catch (error) {
+                    const statusElement = document.getElementById(page.id);
+                    statusElement.textContent = '❌ ผิดพลาด';
+                    statusElement.className = 'status error';
+                    results.push(`❌ ${page.name} - เกิดข้อผิดพลาด: ${error.message}`);
+                }
+                
+                // Add delay between requests
+                await new Promise(resolve => setTimeout(resolve, 200));
+            }
+            
+            const successRate = Math.round((successCount / pages.length) * 100);
+            resultDiv.innerHTML = `
+                <div class="test-result ${successRate === 100 ? 'success' : successRate >= 80 ? 'warning' : 'error'}">
+                    <h3>📊 ผลการทดสอบ: ${successCount}/${pages.length} หน้า (${successRate}%)</h3>
+                    <div style="max-height: 300px; overflow-y: auto;">
+                        ${results.join('<br>')}
+                    </div>
+                </div>
+            `;
+        }
+
+        // Auto-test on page load
+        window.addEventListener('load', () => {
+            setTimeout(testAllPages, 1000);
+        });
+    </script>
+</body>
+</html>

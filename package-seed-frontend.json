@@ -1,0 +1,12 @@
+{
+  "name": "seed-data-frontend",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "seed-data-frontend.js",
+  "scripts": {
+    "seed": "node seed-data-frontend.js"
+  },
+  "dependencies": {
+    "firebase": "^10.7.1"
+  }
+}

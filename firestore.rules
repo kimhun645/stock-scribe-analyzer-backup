@@ -1,0 +1,167 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ฟังก์ชันตรวจสอบ authentication
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // ฟังก์ชันตรวจสอบ role
+    function hasRole(role) {
+      return isAuthenticated() && 
+             resource.data.role == role;
+    }
+    
+    // ฟังก์ชันตรวจสอบว่าเป็น admin
+    function isAdmin() {
+      return isAuthenticated() && 
+             (resource.data.role == 'admin' || 
+              request.auth.token.email.matches('.*@admin\\.'));
+    }
+    
+    // ฟังก์ชันตรวจสอบว่าเป็น manager หรือ admin
+    function isManagerOrAdmin() {
+      return isAuthenticated() && 
+             (resource.data.role in ['admin', 'manager'] || 
+              request.auth.token.email.matches('.*@admin\\.'));
+    }
+    
+    // ฟังก์ชันตรวจสอบว่าเป็นเจ้าของข้อมูล
+    function isOwner() {
+      return isAuthenticated() && 
+             resource.data.userId == request.auth.uid;
+    }
+    
+    // ฟังก์ชันตรวจสอบการเข้าถึงข้อมูล
+    function canRead() {
+      return isAuthenticated();
+    }
+    
+    function canWrite() {
+      return isAuthenticated() && 
+             (resource.data.role in ['admin', 'manager', 'staff']);
+    }
+    
+    function canDelete() {
+      return isAuthenticated() && 
+             (resource.data.role in ['admin', 'manager']);
+    }
+    
+    // Products Collection
+    match /products/{productId} {
+      allow read: if canRead();
+      allow create: if canWrite();
+      allow update: if canWrite();
+      allow delete: if canDelete();
+    }
+    
+    // Categories Collection
+    match /categories/{categoryId} {
+      allow read: if canRead();
+      allow create: if canWrite();
+      allow update: if canWrite();
+      allow delete: if canDelete();
+    }
+    
+    // Suppliers Collection
+    match /suppliers/{supplierId} {
+      allow read: if canRead();
+      allow create: if canWrite();
+      allow update: if canWrite();
+      allow delete: if canDelete();
+    }
+    
+    // Stock Movements Collection
+    match /movements/{movementId} {
+      allow read: if canRead();
+      allow create: if canWrite();
+      allow update: if canWrite();
+      allow delete: if canDelete();
+    }
+    
+    // Users Collection
+    match /users/{userId} {
+      allow read: if canRead();
+      allow create: if isAdmin();
+      allow update: if isAdmin() || isOwner();
+      allow delete: if isAdmin();
+    }
+    
+    // Budget Requests Collection
+    match /budgetRequests/{requestId} {
+      allow read: if canRead();
+      allow create: if canWrite();
+      allow update: if canWrite() || isOwner();
+      allow delete: if canDelete();
+    }
+    
+    // Approvals Collection
+    match /approvals/{approvalId} {
+      allow read: if canRead();
+      allow create: if canWrite();
+      allow update: if isManagerOrAdmin();
+      allow delete: if isAdmin();
+    }
+    
+    // Approvers Collection
+    match /approvers/{approverId} {
+      allow read: if canRead();
+      allow create: if isAdmin();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+    
+    // Requesters Collection
+    match /requesters/{requesterId} {
+      allow read: if canRead();
+      allow create: if canWrite();
+      allow update: if canWrite();
+      allow delete: if isAdmin();
+    }
+    
+    // Account Codes Collection
+    match /accountCodes/{codeId} {
+      allow read: if canRead();
+      allow create: if isAdmin();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+    
+    // Access Codes Collection
+    match /accessCodes/{codeId} {
+      allow read: if canRead();
+      allow create: if isAdmin();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+    
+    // Approval Logs Collection
+    match /approvalLogs/{logId} {
+      allow read: if canRead();
+      allow create: if canWrite();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+    
+    // App Settings Collection
+    match /appSettings/{settingId} {
+      allow read: if canRead();
+      allow create: if isAdmin();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+    
+    // Audit Logs Collection
+    match /auditLogs/{logId} {
+      allow read: if isAdmin();
+      allow create: if canWrite();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+    
+    // Default rule - ป้องกันการเข้าถึงที่ไม่ได้รับอนุญาต
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
