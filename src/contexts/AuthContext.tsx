@@ -12,6 +12,7 @@ import { auth as apiAuth } from '../lib/apiService';
 import { sessionManager } from '../lib/sessionManager';
 import { UserRole } from '../lib/rbac';
 import { logUserAction, AuditAction } from '../lib/auditLogger';
+import { getLogoutRedirectUrl } from '../config/environment';
 
 interface User {
   id: string;
@@ -213,8 +214,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
       sessionManager.cleanup();
       
       await signOut(auth);
-      // Redirect ไปหน้าแรก
-      window.location.href = 'https://stock-6e930.web.app/';
+      
+      // Redirect ไป URL ที่กำหนดตาม environment
+      window.location.href = getLogoutRedirectUrl();
     } catch (error) {
       console.error('Logout error:', error);
     }

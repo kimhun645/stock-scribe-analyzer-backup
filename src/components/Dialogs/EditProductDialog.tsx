@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Loader2, CalendarIcon, X } from 'lucide-react';
+import { Loader2, CalendarIcon, X, Edit3, Package } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { api, Product } from '@/lib/apiService';
 import { format } from 'date-fns';

@@ -1,4 +1,4 @@
-// Theme Manager for Stock Scribe Analyzer
+// Theme Manager for Material Management System
 export interface ThemeSettings {
   mode: 'light' | 'dark' | 'auto';
   colorPalette: string;

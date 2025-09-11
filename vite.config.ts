@@ -12,7 +12,7 @@ export default defineConfig({
   server: {
     port: 3000,
     host: '0.0.0.0',
-    strictPort: true,
+    strictPort: false,
   },
   build: {
     outDir: 'dist',
@@ -86,6 +86,6 @@ export default defineConfig({
   define: {
     // Enable production optimizations
     __DEV__: process.env.NODE_ENV === 'development',
-    'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'production'),
+    'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'development'),
   },
 })

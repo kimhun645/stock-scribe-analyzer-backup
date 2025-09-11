@@ -98,12 +98,24 @@ export function SessionStatusCompact({ className }: SessionStatusProps) {
 
   return (
     <div className={cn(
-      'flex items-center space-x-1 px-2 py-1 rounded text-xs',
-      isWarning ? 'text-amber-600 bg-amber-100' : 'text-green-600 bg-green-100',
+      'group relative flex items-center space-x-2 px-3 py-2 rounded-xl text-xs font-medium shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 hover:-translate-y-0.5',
+      isWarning 
+        ? 'text-amber-100 bg-gradient-to-br from-amber-500/40 via-orange-500/30 to-yellow-500/40 border-amber-400/50' 
+        : 'text-green-100 bg-gradient-to-br from-green-500/40 via-emerald-500/30 to-teal-500/40 border-green-400/50',
       className
     )}>
-      <Clock className="h-3 w-3" />
-      <span className="font-mono">{formatTime(timeRemaining)}</span>
+      <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent rounded-xl blur-sm"></div>
+      <div className="relative flex items-center space-x-2">
+        <div className={cn(
+          'p-1 rounded-lg shadow-lg',
+          isWarning 
+            ? 'bg-gradient-to-br from-amber-400 to-orange-500' 
+            : 'bg-gradient-to-br from-green-400 to-emerald-500'
+        )}>
+          <Clock className="h-3 w-3 drop-shadow-sm" />
+        </div>
+        <span className="font-mono drop-shadow-sm">{formatTime(timeRemaining)}</span>
+      </div>
     </div>
   );
 }

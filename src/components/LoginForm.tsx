@@ -122,7 +122,7 @@ export function LoginForm({ onLoginSuccess }: LoginFormProps) {
             <Zap className="absolute -bottom-1 -left-1 w-4 h-4 text-blue-400 animate-bounce" />
           </div>
           <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent mb-3 tracking-tight">
-            Stock Scribe
+            ระบบบริหารพัสดุ
           </h1>
           <p className="text-gray-300 text-lg font-medium">Advanced Inventory Management</p>
           <div className="flex items-center justify-center gap-2 mt-2">
@@ -300,7 +300,7 @@ export function LoginForm({ onLoginSuccess }: LoginFormProps) {
         {/* Footer */}
         <div className="text-center mt-8">
           <p className="text-sm text-gray-400">
-            © 2025 Stock Scribe Analyzer. All rights reserved.
+            © 2025 ระบบบริหารพัสดุ. All rights reserved.
           </p>
           <div className="flex items-center justify-center gap-4 mt-2">
             <div className="w-1 h-1 bg-green-400 rounded-full animate-pulse"></div>

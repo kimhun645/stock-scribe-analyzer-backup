@@ -1,4 +1,4 @@
-// Notification Service for Stock Scribe Analyzer
+// Notification Service for Material Management System
 export interface Notification {
   id: string;
   type: 'info' | 'success' | 'warning' | 'error';
@@ -72,12 +72,22 @@ class NotificationService {
   private async setupServiceWorker() {
     if ('serviceWorker' in navigator && 'PushManager' in window) {
       try {
+        // Check if service worker is already registered
+        const existingRegistration = await navigator.serviceWorker.getRegistration('/');
+        if (existingRegistration) {
+          console.log('Service Worker already registered:', existingRegistration);
+          return existingRegistration;
+        }
+        
         const registration = await navigator.serviceWorker.register('/sw.js');
         console.log('Service Worker registered:', registration);
+        return registration;
       } catch (error) {
         console.error('Service Worker registration failed:', error);
+        return null;
       }
     }
+    return null;
   }
 
   // Add notification

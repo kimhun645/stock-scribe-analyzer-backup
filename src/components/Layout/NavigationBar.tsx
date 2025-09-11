@@ -24,10 +24,7 @@ export function NavigationBar({ className }: NavigationBarProps) {
       <NavigationLoader isVisible={isNavigating} />
       
       <div className={`bg-background border-b border-border px-4 py-3 ${className}`}>
-        <div className="flex items-center justify-between">
-          {/* Breadcrumb */}
-          <Breadcrumb />
-          
+        <div className="flex items-center justify-end">
           {/* Navigation Controls */}
           <div className="flex items-center space-x-2">
             <Button

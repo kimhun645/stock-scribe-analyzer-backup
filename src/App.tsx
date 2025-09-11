@@ -1,9 +1,10 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { createBrowserRouter, RouterProvider, Outlet } from 'react-router-dom';
 import { StockProvider } from './contexts/StockContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { NavigationProvider } from './contexts/NavigationContext';
+import { SearchProvider } from './contexts/SearchContext';
 import { Toaster } from './components/ui/toaster';
 import { LoginForm } from './components/LoginForm';
 import { PageLoader, NavigationLoader } from './components/Layout/PageLoader';
@@ -11,9 +12,6 @@ import { PageTransition } from './components/Layout/PageTransition';
 import { SessionWarningDialog } from './components/Dialogs/SessionWarningDialog';
 import { SessionStatus } from './components/Layout/SessionStatus';
 import { offlineManager } from './lib/offlineManager';
-
-// Dynamic imports for better performance
-import React, { Suspense } from 'react';
 
 // Lazy load components
 const Index = React.lazy(() => import('./pages/Index'));
@@ -29,6 +27,7 @@ const ApprovalHistory = React.lazy(() => import('./pages/ApprovalHistory'));
 const Reports = React.lazy(() => import('./pages/Reports'));
 const Settings = React.lazy(() => import('./pages/Settings'));
 const SecuritySettings = React.lazy(() => import('./pages/SecuritySettings'));
+const SearchResults = React.lazy(() => import('./pages/SearchResults'));
 const NotFound = React.lazy(() => import('./pages/NotFound'));
 
 // Enhanced loading component with better UX
@@ -197,6 +196,14 @@ function AppContent() {
           ),
         },
         {
+          path: "search",
+          element: (
+            <Suspense fallback={<LoadingSpinner />}>
+              <SearchResults />
+            </Suspense>
+          ),
+        },
+        {
           path: "*",
           element: (
             <Suspense fallback={<LoadingSpinner />}>
@@ -234,7 +241,9 @@ function App() {
   return (
     <AuthProvider>
       <StockProvider>
-        <AppContent />
+        <SearchProvider>
+          <AppContent />
+        </SearchProvider>
       </StockProvider>
     </AuthProvider>
   );

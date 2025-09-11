@@ -345,7 +345,7 @@ export function AddBudgetRequestDialog({ onSuccess, editRequest }: AddBudgetRequ
             </div>
             
             <div class="footer">
-              <p>อีเมลนี้ถูกส่งจากระบบ Stock Scribe Analyzer</p>
+              <p>อีเมลนี้ถูกส่งจากระบบบริหารพัสดุ</p>
               <p>หากมีข้อสงสัย กรุณาติดต่อผู้ดูแลระบบ</p>
             </div>
           </div>
@@ -376,7 +376,7 @@ ${requestData.note ? `หมายเหตุ: ${requestData.note}` : ''}
 คลิกลิงก์เพื่อพิจารณาอนุมัติ: ${approveUrl}
 
 ---
-อีเมลนี้ถูกส่งจากระบบ Stock Scribe Analyzer
+อีเมลนี้ถูกส่งจากระบบบริหารพัสดุ
         `
       };
 

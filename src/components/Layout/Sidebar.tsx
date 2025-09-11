@@ -56,8 +56,8 @@ export function Sidebar({ onLogout }: SidebarProps) {
                 <Package className="h-6 w-6 text-white" />
               </div>
               <div className="hidden lg:block">
-                <h1 className="text-xl font-bold text-white drop-shadow-sm">ระบบจัดการสต็อก</h1>
-                <p className="text-xs text-white/80">Stock Management</p>
+                <h1 className="text-xl font-bold text-white drop-shadow-sm">ระบบบริหารพัสดุ</h1>
+                <p className="text-xs text-white/80">Material Management</p>
               </div>
             </div>
           </div>
