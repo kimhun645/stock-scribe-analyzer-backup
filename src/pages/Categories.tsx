@@ -1,19 +1,26 @@
 
 import React, { useState, useEffect } from 'react';
-import { Layout } from '@/components/Layout/Layout';
-import { PageHeader } from '@/components/Layout/PageHeader';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { Plus, Search, Edit, Trash2, Pill, BarChart3, TrendingUp, Layers, Package, FolderOpen } from 'lucide-react';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Plus, Search, Edit, Trash2, Pill, BarChart3, TrendingUp, Layers, Package, Filter } from 'lucide-react';
 import { api, type Category } from '@/lib/apiService';
 import { AddCategoryDialog } from '@/components/Dialogs/AddCategoryDialog';
 import { EditCategoryDialog } from '@/components/Dialogs/EditCategoryDialog';
 import { useToast } from '@/hooks/use-toast';
 import { useBarcodeScanner } from '@/hooks/use-barcode-scanner';
-import { BarcodeScannerIndicator } from '@/components/ui/barcode-scanner-indicator';
+import {
+  ProductsStylePageLayout,
+  ProductsStylePageHeader,
+  ProductsStyleStatsCards,
+  ProductsStyleBulkActionsBar,
+  ProductsStyleDataTable,
+  ProductsStylePagination,
+  ProductsStyleDeleteConfirmationDialog,
+  type StatCard,
+  type ProductsStyleTableColumn
+} from '@/components/ui/shared-components';
 
 export default function Categories() {
   const [categories, setCategories] = useState<Category[]>([]);
@@ -22,6 +29,19 @@ export default function Categories() {
   const [productCounts, setProductCounts] = useState<Record<string, number>>({});
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  
+  // Pagination and view state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(12);
+  const [viewMode, setViewMode] = useState<'table' | 'grid'>('grid');
+  const [sortField, setSortField] = useState('name');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  
+  // Bulk actions state
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [showFilterDialog, setShowFilterDialog] = useState(false);
+  const [typeFilter, setTypeFilter] = useState('all');
+  
   const { toast } = useToast();
 
   // Barcode scanner support
@@ -38,10 +58,90 @@ export default function Categories() {
     timeout: 100
   });
 
-  const filteredCategories = categories.filter(category =>
-    category.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (category.description && category.description.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  // Filter categories based on search and type filter
+  const filteredCategories = categories.filter(category => {
+    if (!category || !category.id || !category.name) return false; // Skip invalid categories
+    
+    const matchesSearch = category.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (category.description && category.description.toLowerCase().includes(searchTerm.toLowerCase()));
+    
+    const matchesType = typeFilter === 'all' || 
+      (typeFilter === 'medicine' && category.is_medicine) ||
+      (typeFilter === 'non-medicine' && !category.is_medicine);
+    
+    return matchesSearch && matchesType;
+  });
+
+  // Sort categories
+  const sortedCategories = [...filteredCategories].sort((a, b) => {
+    if (!a || !b) return 0; // Skip invalid items
+    
+    let aValue = a[sortField as keyof Category];
+    let bValue = b[sortField as keyof Category];
+    
+    if (typeof aValue === 'string') aValue = aValue.toLowerCase();
+    if (typeof bValue === 'string') bValue = bValue.toLowerCase();
+    
+    if (sortDirection === 'asc') {
+      return aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
+    } else {
+      return aValue > bValue ? -1 : aValue < bValue ? 1 : 0;
+    }
+  });
+
+  // Pagination
+  const totalPages = Math.ceil(sortedCategories.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedCategories = sortedCategories.slice(startIndex, endIndex).filter(category => category && category.id);
+
+  // Bulk actions handlers
+  const handleSelectCategory = (categoryId: string) => {
+    setSelectedCategories(prev => 
+      prev.includes(categoryId) 
+        ? prev.filter(id => id !== categoryId)
+        : [...prev, categoryId]
+    );
+  };
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedCategories(paginatedCategories.map(cat => cat.id));
+    } else {
+      setSelectedCategories([]);
+    }
+  };
+
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    try {
+      for (const categoryId of selectedCategories) {
+        await api.deleteCategory(categoryId);
+      }
+      
+      toast({
+        title: "สำเร็จ",
+        description: `ลบหมวดหมู่ ${selectedCategories.length} รายการสำเร็จแล้ว`,
+      });
+      
+      setSelectedCategories([]);
+      fetchCategories();
+    } catch (error) {
+      toast({
+        title: "เกิดข้อผิดพลาด",
+        description: "ไม่สามารถลบหมวดหมู่ได้",
+        variant: "destructive",
+      });
+    }
+  };
 
   const fetchCategories = async () => {
     try {
@@ -140,205 +240,259 @@ export default function Categories() {
   
   const trend = calculateTrend();
 
+  // Define columns for data table
+  const columns: ProductsStyleTableColumn[] = [
+    {
+      key: 'name',
+      title: 'ชื่อหมวดหมู่',
+      sortable: true,
+      render: (category: Category) => (
+        <div className="flex items-center gap-2">
+          <span className="font-medium">{category?.name || 'Unknown'}</span>
+          {category?.is_medicine && (
+            <Pill className="h-4 w-4 text-green-600" title="หมวดหมู่ยา" />
+          )}
+        </div>
+      )
+    },
+    {
+      key: 'description',
+      title: 'คำอธิบาย',
+      sortable: true,
+      render: (category: Category) => (
+        <span className="text-sm text-muted-foreground">
+          {category?.description || 'ไม่มีคำอธิบาย'}
+        </span>
+      )
+    },
+    {
+      key: 'product_count',
+      title: 'จำนวนสินค้า',
+      sortable: true,
+      render: (category: Category) => {
+        if (!category?.id) return <span className="text-sm text-muted-foreground">-</span>;
+        const count = productCounts[category.id] || 0;
+        return (
+          <Badge variant="secondary" className="bg-blue-500/10 text-blue-600">
+            {count.toLocaleString()} สินค้า
+          </Badge>
+        );
+      }
+    },
+    {
+      key: 'is_medicine',
+      title: 'ประเภท',
+      sortable: true,
+      render: (category: Category) => (
+        category?.is_medicine ? (
+          <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-200">
+            ยา
+          </Badge>
+        ) : (
+          <Badge variant="outline" className="bg-gray-500/10 text-gray-600 border-gray-200">
+            ทั่วไป
+          </Badge>
+        )
+      )
+    },
+    {
+      key: 'actions',
+      title: 'การดำเนินการ',
+      sortable: false,
+      render: (category: Category) => (
+        <div className="flex items-center gap-1">
+          {category?.id ? (
+            <>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => handleEditCategory(category)}
+                className="h-8 w-8 p-0 hover:bg-blue-50"
+              >
+                <Edit className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => handleDeleteCategory(category.id)}
+                className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-red-50"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </>
+          ) : (
+            <span className="text-sm text-muted-foreground">-</span>
+          )}
+        </div>
+      )
+    }
+  ];
+
+  // Define stats cards
+  const statsCards: StatCard[] = [
+    {
+      title: "หมวดหมู่ทั้งหมด",
+      value: totalCategories.toString(),
+      icon: <BarChart3 className="h-6 w-6" />,
+      color: "teal"
+    },
+    {
+      title: "หมวดหมู่ยา",
+      value: medicineCategories.toString(),
+      icon: <Pill className="h-6 w-6" />,
+      color: medicineCategories > 0 ? "green" : "red"
+    },
+    {
+      title: "สินค้ารวม",
+      value: totalProducts.toLocaleString(),
+      icon: <Package className="h-6 w-6" />,
+      color: "purple"
+    },
+    {
+      title: "ประสิทธิภาพ",
+      value: `${efficiency}%`,
+      icon: <TrendingUp className="h-6 w-6" />,
+      color: efficiency >= 80 ? "green" : efficiency >= 60 ? "orange" : "red"
+    }
+  ];
+
   return (
-    <Layout hideHeader={true}>
-      <div className="w-full space-y-6 pb-8">
-        {/* Professional Page Header */}
-        <PageHeader 
-          title="หมวดหมู่สินค้า"
-          description="จัดการและจัดหมวดหมู่สินค้าอย่างเป็นระบบ"
-          icon={Layers}
-          stats={[
-            {
-              label: "หมวดหมู่ทั้งหมด",
-              value: totalCategories.toString(),
-              icon: BarChart3
-            },
-            {
-              label: "หมวดหมู่ยา",
-              value: medicineCategories.toString(),
-              icon: Pill,
-              color: medicineCategories > 0 ? 'bg-green-500' : 'bg-muted/50'
-            },
-            {
-              label: "สินค้ารวม",
-              value: totalProducts.toLocaleString(),
-              icon: Package,
-              trend: trend
-            },
-            {
-              label: "ประสิทธิภาพ",
-              value: `${efficiency}%`,
-              icon: TrendingUp,
-              color: efficiency >= 80 ? 'bg-green-500' : efficiency >= 60 ? 'bg-yellow-500' : 'bg-red-500'
-            }
-          ]}
-          secondaryActions={<AddCategoryDialog onCategoryAdded={fetchCategories} />}
+    <ProductsStylePageLayout>
+      {/* Page Header */}
+      <ProductsStylePageHeader
+        title="หมวดหมู่สินค้า"
+        description="จัดการและจัดหมวดหมู่สินค้าอย่างเป็นระบบ"
+        icon={Layers}
+        searchValue={searchTerm}
+        onSearchChange={setSearchTerm}
+        searchPlaceholder="ค้นหาหมวดหมู่ ชื่อหรือคำอธิบาย..."
+        primaryAction={
+          <AddCategoryDialog onCategoryAdded={fetchCategories} />
+        }
+        secondaryActions={[
+          <Button
+            key="filter"
+            variant="outline"
+            size="sm"
+            onClick={() => setShowFilterDialog(true)}
+            className="h-9 px-4 rounded-xl border-2 border-purple-200 hover:border-purple-300 bg-white/80 backdrop-blur-sm"
+          >
+            <Filter className="h-4 w-4 mr-2" />
+            ตัวกรอง
+          </Button>
+        ]}
+      />
+
+      {/* Stats Cards */}
+      <ProductsStyleStatsCards cards={statsCards} />
+
+      {/* Bulk Actions Bar */}
+      {selectedCategories.length > 0 && (
+        <ProductsStyleBulkActionsBar
+          selectedCount={selectedCategories.length}
+          onClearSelection={() => setSelectedCategories([])}
+          onExport={() => {/* TODO: Implement export functionality */}}
+          onDelete={handleBulkDelete}
         />
+      )}
 
-        {/* Enhanced Search */}
-        <Card className="bg-gradient-to-br from-green-50 via-white to-blue-50 border-2 border-green-200 shadow-xl relative overflow-hidden">
-          {/* Background decoration */}
-          <div className="absolute inset-0 opacity-20">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-green-200 rounded-full -translate-y-32 translate-x-32 blur-3xl"></div>
-            <div className="absolute bottom-0 left-0 w-80 h-80 bg-blue-200 rounded-full translate-y-40 -translate-x-40 blur-3xl"></div>
-            <div className="absolute top-1/2 left-1/2 w-48 h-48 bg-emerald-200 rounded-full -translate-x-24 -translate-y-24 blur-2xl"></div>
-          </div>
-          
-          <CardContent className="p-6 sm:p-8 relative z-10">
-            <div className="space-y-6">
-              {/* Scanner Status */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <span className="text-lg sm:text-xl text-muted-foreground font-semibold">สถานะเครื่องสแกน:</span>
-                  <BarcodeScannerIndicator isDetected={scannerDetected} />
-                </div>
-                {scannerDetected && (
-                  <p className="text-base text-green-700 font-semibold bg-green-100 px-4 py-2 rounded-full border-2 border-green-300 shadow-sm">
-                    ✨ พร้อมใช้งาน - สแกนบาร์โค้ดเพื่อค้นหาหมวดหมู่
-                  </p>
-                )}
-              </div>
-              
-              <div className="flex items-center gap-3">
-                <Search className="h-6 w-6 text-muted-foreground" />
-                <h3 className="text-xl sm:text-2xl font-bold text-foreground">ค้นหาหมวดหมู่</h3>
-              </div>
-              <div className="relative">
-                <Search className="absolute left-4 top-1/2 h-6 w-6 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  placeholder="ค้นหาหมวดหมู่ ชื่อหรือคำอธิบาย..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-12 text-lg h-14 border-2 border-green-200 focus:border-green-500 focus:ring-4 focus:ring-green-200/50 bg-white/90 backdrop-blur-sm font-medium placeholder:text-muted-foreground/70"
-                />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Categories Grid */}
-        <div className="w-full min-h-0">
-          {isLoading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-              {[...Array(6)].map((_, i) => (
-                <Card key={i} className="bg-gradient-to-br from-blue-50 via-white to-indigo-50 border-2 border-blue-200 shadow-xl relative overflow-hidden">
-                  <CardContent className="p-6 relative z-10">
-                    <div className="animate-pulse space-y-4">
-                      <div className="h-4 bg-blue-200 rounded"></div>
-                      <div className="h-3 bg-blue-200 rounded w-3/4"></div>
-                      <div className="h-3 bg-blue-200 rounded w-1/2"></div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          ) : filteredCategories.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
-              {filteredCategories.map((category) => {
-                const productCount = productCounts[category.id] || 0;
-              
-                return (
-                  <Card key={category.id} className="bg-gradient-to-br from-blue-50 via-white to-indigo-50 border-2 border-blue-200 shadow-xl hover:shadow-2xl transition-all duration-300 h-fit relative overflow-hidden group">
-                    {/* Background decoration */}
-                    <div className="absolute inset-0 opacity-10 group-hover:opacity-20 transition-opacity duration-300">
-                      <div className="absolute top-0 right-0 w-32 h-32 bg-blue-200 rounded-full -translate-y-16 translate-x-16 blur-2xl"></div>
-                      <div className="absolute bottom-0 left-0 w-40 h-40 bg-indigo-200 rounded-full translate-y-20 -translate-x-20 blur-2xl"></div>
-                    </div>
-                    
-                    <CardHeader className="pb-3 relative z-10">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex-1 min-w-0">
-                           <CardTitle className="text-base sm:text-lg font-bold text-blue-800 flex items-center gap-2">
-                             <span className="break-words">{category.name}</span>
-                             {category.is_medicine && (
-                               <div className="flex items-center" title="หมวดหมู่ยา">
-                                 <Pill className="h-4 w-4 text-green-600 flex-shrink-0" />
-                               </div>
-                             )}
-                           </CardTitle>
-                        </div>
-                        <div className="flex space-x-1 flex-shrink-0">
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            className="h-8 w-8 p-0 hover:bg-blue-50"
-                            onClick={() => handleEditCategory(category)}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <AlertDialog>
-                           <AlertDialogTrigger asChild>
-                             <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-red-50">
-                               <Trash2 className="h-4 w-4" />
-                             </Button>
-                           </AlertDialogTrigger>
-                           <AlertDialogContent className="bg-gradient-to-br from-white to-blue-50 shadow-2xl border-2 border-blue-200">
-                             <AlertDialogHeader>
-                               <AlertDialogTitle className="text-lg font-bold text-blue-800">ยืนยันการลบ</AlertDialogTitle>
-                               <AlertDialogDescription className="text-base">
-                                 คุณแน่ใจหรือไม่ที่จะลบหมวดหมู่ "{category.name}"? 
-                                 {productCount > 0 && (
-                                   <span className="text-destructive font-medium">
-                                     <br />หมวดหมู่นี้มีสินค้า {productCount} รายการ
-                                   </span>
-                                 )}
-                               </AlertDialogDescription>
-                             </AlertDialogHeader>
-                             <AlertDialogFooter>
-                               <AlertDialogCancel className="border-2 border-blue-200 hover:bg-blue-50">ยกเลิก</AlertDialogCancel>
-                               <AlertDialogAction
-                                 onClick={() => handleDeleteCategory(category.id)}
-                                 className="bg-red-500 hover:bg-red-600 text-white font-bold"
-                               >
-                                 ลบ
-                               </AlertDialogAction>
-                             </AlertDialogFooter>
-                           </AlertDialogContent>
-                         </AlertDialog>
-                       </div>
-                     </div>
-                   </CardHeader>
-                   <CardContent className="space-y-3 relative z-10">
-                     <p className="text-sm text-muted-foreground break-words min-h-[2.5rem]">
-                       {category.description || 'ไม่มีคำอธิบาย'}
-                     </p>
-                      <div className="flex items-center justify-between flex-wrap gap-2">
-                        <div className="flex items-center gap-2">
-                          <Badge variant="secondary" className="bg-blue-500/10 text-blue-600 text-xs font-bold px-3 py-1">
-                            {productCount.toLocaleString()} สินค้า
-                          </Badge>
-                          {category.is_medicine && (
-                            <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-200 text-xs font-bold px-3 py-1">
-                              ยา
-                            </Badge>
-                          )}
-                        </div>
-                       <span className="text-xs text-muted-foreground truncate">
-                         ID: {category.id.slice(0, 8)}...
-                       </span>
-                     </div>
-                   </CardContent>
-                 </Card>
-               );
-             })}
-           </div>
-         ) : (
-           <Card className="bg-gradient-to-br from-blue-50 via-white to-indigo-50 border-2 border-blue-200 shadow-xl relative overflow-hidden">
-             {/* Background decoration */}
-             <div className="absolute inset-0 opacity-20">
-               <div className="absolute top-0 right-0 w-64 h-64 bg-blue-200 rounded-full -translate-y-32 translate-x-32 blur-3xl"></div>
-               <div className="absolute bottom-0 left-0 w-80 h-80 bg-indigo-200 rounded-full translate-y-40 -translate-x-40 blur-3xl"></div>
-             </div>
-             
-             <CardContent className="p-12 text-center relative z-10">
-               <FolderOpen className="h-16 w-16 text-blue-300 mx-auto mb-4" />
-               <p className="text-lg font-medium text-blue-800">ไม่พบหมวดหมู่ที่ตรงกับการค้นหา</p>
-             </CardContent>
-           </Card>
-         )}
+      {/* Data Table */}
+      <ProductsStyleDataTable
+        title="รายการหมวดหมู่"
+        description="จัดการหมวดหมู่สินค้าทั้งหมดในระบบ"
+        data={paginatedCategories || []}
+        columns={columns}
+        currentViewMode={viewMode || 'grid'}
+        onViewModeChange={setViewMode}
+        onSort={handleSort}
+        onRefresh={fetchCategories}
+        onClearSelection={() => setSelectedCategories([])}
+        selectedItems={selectedCategories || []}
+        onSelectItem={handleSelectCategory}
+        onSelectAll={handleSelectAll}
+        onEdit={(category) => category && handleEditCategory(category)}
+        onDelete={handleDeleteCategory}
+        onFilter={() => setShowFilterDialog(true)}
+        sortField={sortField || 'name'}
+        sortDirection={sortDirection || 'asc'}
+        loading={isLoading || false}
+        emptyMessage="ไม่พบข้อมูลหมวดหมู่ที่ตรงกับการค้นหา"
+        getItemId={(item) => item?.id || 'unknown'}
+        getItemName={(item) => item?.name || 'Unknown'}
+        currentPage={currentPage || 1}
+        totalPages={totalPages || 1}
+        filterDialog={
+          <DialogContent className="sm:max-w-md bg-gradient-to-br from-white to-purple-50/30 backdrop-blur-lg border-0 rounded-2xl shadow-2xl">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                <Filter className="h-5 w-5 text-purple-600" />
+                ตัวกรองหมวดหมู่
+              </DialogTitle>
+              <DialogDescription className="text-gray-600">
+                เลือกตัวกรองเพื่อค้นหาหมวดหมู่ตามที่ต้องการ
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="space-y-6 py-4">
+              {/* Type Filter */}
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-gray-700">ประเภทหมวดหมู่</label>
+                <Select value={typeFilter} onValueChange={setTypeFilter}>
+                  <SelectTrigger className="w-full h-11 text-base border-2 border-purple-200 focus:border-purple-500 focus:ring-4 focus:ring-purple-200/50 bg-white/90 backdrop-blur-sm font-medium transition-all duration-300 focus-ring rounded-2xl">
+                    <SelectValue placeholder="เลือกประเภท" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white/95 backdrop-blur-sm border-2 border-purple-200 rounded-2xl">
+                    <SelectItem value="all" className="text-base font-medium py-3">ทุกประเภท</SelectItem>
+                    <SelectItem value="medicine" className="text-base font-medium py-3">หมวดหมู่ยา</SelectItem>
+                    <SelectItem value="non-medicine" className="text-base font-medium py-3">หมวดหมู่ทั่วไป</SelectItem>
+                  </SelectContent>
+                </Select>
        </div>
      </div>
+            
+            <div className="flex justify-end gap-3 pt-4">
+              <Button
+                variant="outline"
+                onClick={() => setShowFilterDialog(false)}
+                className="px-6 rounded-xl border-2 border-gray-200 hover:border-gray-300"
+              >
+                ปิด
+              </Button>
+              <Button
+                onClick={() => {
+                  setShowFilterDialog(false);
+                  setCurrentPage(1);
+                }}
+                className="px-6 rounded-xl bg-gradient-to-r from-purple-600 to-blue-600 text-white hover:from-purple-700 hover:to-blue-700"
+              >
+                ใช้ตัวกรอง
+              </Button>
+            </div>
+          </DialogContent>
+        }
+      />
+
+      {/* Pagination */}
+      <ProductsStylePagination
+        currentPage={currentPage || 1}
+        totalPages={totalPages || 1}
+        totalItems={sortedCategories.length}
+        itemsPerPage={itemsPerPage}
+        onPageChange={setCurrentPage}
+        onItemsPerPageChange={setItemsPerPage}
+        itemsPerPageOptions={[6, 12, 24, 48]}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <ProductsStyleDeleteConfirmationDialog
+        open={false}
+        onOpenChange={() => {}}
+        onConfirm={() => {}}
+        title="ยืนยันการลบ"
+        description="คุณแน่ใจหรือไม่ที่จะลบหมวดหมู่ที่เลือก?"
+        itemName="หมวดหมู่"
+        itemCount={selectedCategories.length}
+      />
 
      {/* Edit Category Dialog */}
      <EditCategoryDialog
@@ -347,6 +501,6 @@ export default function Categories() {
        onOpenChange={setEditDialogOpen}
        onCategoryUpdated={fetchCategories}
      />
-   </Layout>
+    </ProductsStylePageLayout>
  );
 }

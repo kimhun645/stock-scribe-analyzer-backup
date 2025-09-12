@@ -1,32 +1,42 @@
 import React, { useState, useEffect } from 'react';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogClose,
-} from '@/components/ui/dialog';
+import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Loader2, CalendarIcon, X, Edit3, Package } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
-import { api, Product } from '@/lib/apiService';
+import { CalendarIcon, Edit3, Save, Loader2, Package, Building2, Tag, DollarSign, BarChart3, MapPin, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { format } from 'date-fns';
+import { th } from 'date-fns/locale';
+import { api as apiService } from '@/lib/apiService';
+import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
-interface CategoryForProduct {
+interface Product {
   id: string;
   name: string;
-  is_medicine?: boolean;
+  description: string;
+  category_id: string;
+  supplier_id: string;
+  barcode: string;
+  location: string;
+  cost_price: number;
+  selling_price: number;
+  stock_quantity: number;
+  min_stock_level: number;
+  expiry_date: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
-interface SupplierForProduct {
+interface Category {
+  id: string;
+  name: string;
+}
+
+interface Supplier {
   id: string;
   name: string;
 }
@@ -35,137 +45,107 @@ interface EditProductDialogProps {
   product: Product | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onProductUpdated: () => void;
+  onSuccess: () => void;
+  variant?: 'default' | 'colorful' | 'professional' | 'minimal';
+  size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | 'full';
 }
 
-export function EditProductDialog({ product, open, onOpenChange, onProductUpdated }: EditProductDialogProps) {
-  const { toast } = useToast();
-  const [isLoading, setIsLoading] = useState(false);
-  const [categories, setCategories] = useState<CategoryForProduct[]>([]);
-  const [suppliers, setSuppliers] = useState<SupplierForProduct[]>([]);
-  const [expiryDate, setExpiryDate] = useState<Date | undefined>(undefined);
-  
+export function EditProductDialog({ 
+  product, 
+  open, 
+  onOpenChange, 
+  onSuccess, 
+  variant = 'colorful',
+  size = 'lg'
+}: EditProductDialogProps) {
   const [formData, setFormData] = useState({
     name: '',
-    sku: '',
-    barcode: '',
     description: '',
     category_id: '',
     supplier_id: '',
-    unit_price: '',
-    current_stock: '',
-    min_stock: '',
-    max_stock: '',
-    location: ''
+    barcode: '',
+    location: '',
+    cost_price: 0,
+    selling_price: 0,
+    stock_quantity: 0,
+    min_stock_level: 0,
+    expiry_date: null as Date | null,
   });
-  
-  const selectedCategory = categories.find(cat => cat.id === formData.category_id);
 
-  // Initialize form data when product changes
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isDataLoading, setIsDataLoading] = useState(false);
+
   useEffect(() => {
-    if (product && open) {
+    if (product) {
       setFormData({
         name: product.name || '',
-        sku: product.sku || '',
-        barcode: product.barcode || '',
         description: product.description || '',
         category_id: product.category_id || '',
         supplier_id: product.supplier_id || '',
-        unit_price: product.unit_price?.toString() || '',
-        current_stock: product.current_stock?.toString() || '',
-        min_stock: product.min_stock?.toString() || '',
-        max_stock: product.max_stock?.toString() || '',
-        location: product.location || ''
+        barcode: product.barcode || '',
+        location: product.location || '',
+        cost_price: product.cost_price || 0,
+        selling_price: product.selling_price || 0,
+        stock_quantity: product.stock_quantity || 0,
+        min_stock_level: product.min_stock_level || 0,
+        expiry_date: product.expiry_date ? new Date(product.expiry_date) : null,
       });
-      
-      if (product.expiry_date) {
-        setExpiryDate(new Date(product.expiry_date));
-      } else {
-        setExpiryDate(undefined);
-      }
     }
-  }, [product, open]);
+  }, [product]);
 
-  const fetchCategoriesAndSuppliers = async () => {
+  useEffect(() => {
+    if (open) {
+      fetchData();
+    }
+  }, [open]);
+
+  const fetchData = async () => {
+    setIsDataLoading(true);
     try {
-      const [categoriesResult, suppliersResult] = await Promise.all([
-              api.getCategories(),
-      api.getSuppliers()
+      const [categoriesData, suppliersData] = await Promise.all([
+        apiService.getCategories(),
+        apiService.getSuppliers(),
       ]);
-
-      setCategories(categoriesResult || []);
-      setSuppliers(suppliersResult || []);
+      setCategories(categoriesData);
+      setSuppliers(suppliersData);
     } catch (error) {
       console.error('Error fetching data:', error);
       toast({
         title: "เกิดข้อผิดพลาด",
-        description: "ไม่สามารถดึงข้อมูลหมวดหมู่และผู้จำหน่ายได้",
+        description: "เกิดข้อผิดพลาดในการโหลดข้อมูล",
         variant: "destructive",
       });
+    } finally {
+      setIsDataLoading(false);
     }
   };
 
-  useEffect(() => {
-    if (open) {
-      fetchCategoriesAndSuppliers();
-    }
-  }, [open]);
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!product || !formData.name || !formData.category_id || !formData.supplier_id || !formData.unit_price) {
-      toast({
-        title: "กรุณากรอกข้อมูลให้ครบถ้วน",
-        description: "กรุณาระบุชื่อสินค้า หมวดหมู่ ผู้จำหน่าย และราคา",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Check if medicine category requires expiry date
-    if (selectedCategory?.is_medicine && !expiryDate) {
-      toast({
-        title: "กรุณาระบุวันหมดอายุ",
-        description: "หมวดหมู่ยาต้องระบุวันหมดอายุ",
-        variant: "destructive",
-      });
-      return;
-    }
+    if (!product) return;
 
     setIsLoading(true);
-
     try {
-      // Update product
-              await api.updateProduct(product.id, {
-        name: formData.name,
-        sku: formData.sku || product.sku, // Keep original SKU if not changed
-        barcode: formData.barcode || undefined,
-        description: formData.description || undefined,
-        category_id: formData.category_id,
-        supplier_id: formData.supplier_id,
-        unit_price: parseFloat(formData.unit_price),
-        current_stock: parseInt(formData.current_stock) || 0,
-        min_stock: parseInt(formData.min_stock) || 0,
-        max_stock: formData.max_stock ? parseInt(formData.max_stock) : undefined,
-        unit: undefined,
-        location: formData.location || undefined,
-        expiry_date: expiryDate ? expiryDate.toISOString().split('T')[0] : undefined
-      });
+      const updateData = {
+        ...formData,
+        expiry_date: formData.expiry_date ? formData.expiry_date.toISOString() : null,
+      };
 
+      await apiService.updateProduct(product.id, updateData);
       toast({
-        title: "อัปเดตสินค้าเรียบร้อย",
-        description: `อัปเดตสินค้า ${formData.name} เรียบร้อยแล้ว`,
+        title: "สำเร็จ",
+        description: "แก้ไขสินค้าสำเร็จ",
+        variant: "default",
       });
-
+      onSuccess();
       onOpenChange(false);
-      onProductUpdated();
-
     } catch (error) {
       console.error('Error updating product:', error);
       toast({
         title: "เกิดข้อผิดพลาด",
-        description: "ไม่สามารถอัปเดตสินค้าได้",
+        description: "เกิดข้อผิดพลาดในการแก้ไขสินค้า",
         variant: "destructive",
       });
     } finally {
@@ -173,212 +153,295 @@ export function EditProductDialog({ product, open, onOpenChange, onProductUpdate
     }
   };
 
+  if (!product) return null;
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>แก้ไขสินค้า</DialogTitle>
-          <DialogDescription>
-            แก้ไขข้อมูลสินค้าในระบบ
-          </DialogDescription>
-          <DialogClose className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
-            <X className="h-4 w-4" />
-            <span className="sr-only">Close</span>
-          </DialogClose>
-        </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">ชื่อสินค้า *</Label>
-              <Input
-                id="name"
-                value={formData.name}
-                onChange={(e) => setFormData({...formData, name: e.target.value})}
-                placeholder="ชื่อสินค้า"
-              />
+    <ResponsiveModal
+      open={open}
+      onOpenChange={onOpenChange}
+      title="แก้ไขสินค้า"
+      description={product.name}
+      icon={<Edit3 className="h-6 w-6 text-white" />}
+      size={size}
+      variant={variant}
+    >
+        <form onSubmit={handleSubmit} className="space-y-4 py-4 px-6">
+          {/* Basic Information Section */}
+          <div className="space-y-3">
+            <div className="flex items-center space-x-2 mb-2">
+              <div className="p-1.5 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-lg">
+                <Tag className="h-3 w-3 text-white" />
+              </div>
+              <h3 className="text-base font-semibold text-slate-800">ข้อมูลพื้นฐาน</h3>
             </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label htmlFor="name" className="text-xs font-semibold text-slate-700 flex items-center">
+                  <span className="text-red-500 mr-1">*</span>
+                  ชื่อสินค้า
+                </Label>
+                <Input
+                  id="name"
+                  value={formData.name}
+                  onChange={(e) => setFormData({...formData, name: e.target.value})}
+                  placeholder="กรอกชื่อสินค้า"
+                  className="h-9 text-sm border-2 border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 bg-white hover:bg-slate-50 transition-all duration-200 shadow-sm hover:shadow-md rounded-lg"
+                  required
+                />
+              </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="sku">SKU</Label>
-              <Input
-                id="sku"
-                value={formData.sku}
-                onChange={(e) => setFormData({...formData, sku: e.target.value})}
-                placeholder="SKU-0001"
-                disabled // Usually don't allow SKU changes
-              />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="description">รายละเอียด</Label>
-            <Textarea
-              id="description"
-              value={formData.description}
-              onChange={(e) => setFormData({...formData, description: e.target.value})}
-              placeholder="รายละเอียดสินค้า"
-              rows={3}
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="category">หมวดหมู่ *</Label>
-              <Select value={formData.category_id} onValueChange={(value) => setFormData({...formData, category_id: value})}>
-                <SelectTrigger>
-                  <SelectValue placeholder="เลือกหมวดหมู่" />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.map((category) => (
-                    <SelectItem key={category.id} value={category.id}>
-                      {category.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="supplier">ผู้จำหน่าย *</Label>
-              <Select value={formData.supplier_id} onValueChange={(value) => setFormData({...formData, supplier_id: value})}>
-                <SelectTrigger>
-                  <SelectValue placeholder="เลือกผู้จำหน่าย" />
-                </SelectTrigger>
-                <SelectContent>
-                  {suppliers.map((supplier) => (
-                    <SelectItem key={supplier.id} value={supplier.id}>
-                      {supplier.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="space-y-1">
+                <Label htmlFor="description" className="text-xs font-semibold text-slate-700">รายละเอียดสินค้า</Label>
+                <Input
+                  id="description"
+                  value={formData.description}
+                  onChange={(e) => setFormData({...formData, description: e.target.value})}
+                  placeholder="รายละเอียดสินค้า"
+                  className="h-9 text-sm border-2 border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 bg-white hover:bg-slate-50 transition-all duration-200 shadow-sm hover:shadow-md rounded-lg"
+                />
+              </div>
             </div>
           </div>
 
-          {/* Barcode */}
-          <div className="space-y-2">
-            <Label htmlFor="barcode">บาร์โค้ด</Label>
-            <Input
-              id="barcode"
-              value={formData.barcode}
-              onChange={(e) => setFormData({ ...formData, barcode: e.target.value })}
-              placeholder="บาร์โค้ดสินค้า"
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="unit_price">ราคาต่อหน่วย (บาท) *</Label>
-              <Input
-                id="unit_price"
-                type="number"
-                min="0"
-                step="0.01"
-                value={formData.unit_price}
-                onChange={(e) => setFormData({...formData, unit_price: e.target.value})}
-                placeholder="0.00"
-              />
+          {/* Category & Supplier Section */}
+          <div className="space-y-3">
+            <div className="flex items-center space-x-2 mb-2">
+              <div className="p-1.5 bg-gradient-to-r from-purple-500 to-pink-600 rounded-lg">
+                <Building2 className="h-3 w-3 text-white" />
+              </div>
+              <h3 className="text-base font-semibold text-slate-800">หมวดหมู่และผู้จำหน่าย</h3>
             </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold text-slate-700 flex items-center">
+                  <span className="text-red-500 mr-1">*</span>
+                  หมวดหมู่สินค้า
+                </Label>
+                <Select
+                  value={formData.category_id}
+                  onValueChange={(value) => setFormData({...formData, category_id: value})}
+                  disabled={isDataLoading}
+                >
+                  <SelectTrigger className="h-9 text-sm border-2 border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 bg-white hover:bg-slate-50 transition-all duration-200 shadow-sm hover:shadow-md rounded-lg">
+                    <SelectValue placeholder="เลือกหมวดหมู่" />
+                  </SelectTrigger>
+                  <SelectContent className="relative z-50 rounded-lg border-2 border-slate-200 shadow-xl">
+                    {categories.map((category) => (
+                      <SelectItem key={category.id} value={category.id} className="text-sm py-2 hover:bg-emerald-50">
+                        {category.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="location">ที่ตั้ง</Label>
-              <Input
-                id="location"
-                value={formData.location}
-                onChange={(e) => setFormData({...formData, location: e.target.value})}
-                placeholder="A1-B2-C3"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="current_stock">สต็อกปัจจุบัน</Label>
-              <Input
-                id="current_stock"
-                type="number"
-                min="0"
-                value={formData.current_stock}
-                onChange={(e) => setFormData({...formData, current_stock: e.target.value})}
-                placeholder="0"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="min_stock">สต็อกขั้นต่ำ</Label>
-              <Input
-                id="min_stock"
-                type="number"
-                min="0"
-                value={formData.min_stock}
-                onChange={(e) => setFormData({...formData, min_stock: e.target.value})}
-                placeholder="0"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="max_stock">สต็อกสูงสุด</Label>
-              <Input
-                id="max_stock"
-                type="number"
-                min="0"
-                value={formData.max_stock}
-                onChange={(e) => setFormData({...formData, max_stock: e.target.value})}
-                placeholder="ไม่จำกัด"
-              />
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold text-slate-700 flex items-center">
+                  <span className="text-red-500 mr-1">*</span>
+                  ผู้จำหน่าย
+                </Label>
+                <Select
+                  value={formData.supplier_id}
+                  onValueChange={(value) => setFormData({...formData, supplier_id: value})}
+                  disabled={isDataLoading}
+                >
+                  <SelectTrigger className="h-9 text-sm border-2 border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 bg-white hover:bg-slate-50 transition-all duration-200 shadow-sm hover:shadow-md rounded-lg">
+                    <SelectValue placeholder="เลือกผู้จำหน่าย" />
+                  </SelectTrigger>
+                  <SelectContent className="relative z-50 rounded-lg border-2 border-slate-200 shadow-xl">
+                    {suppliers.map((supplier) => (
+                      <SelectItem key={supplier.id} value={supplier.id} className="text-sm py-2 hover:bg-emerald-50">
+                        {supplier.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
 
-          {/* Expiry Date for Medicine */}
-          {selectedCategory?.is_medicine && (
+          {/* Barcode & Location Section */}
+          <div className="space-y-3">
+            <div className="flex items-center space-x-2 mb-2">
+              <div className="p-1.5 bg-gradient-to-r from-orange-500 to-red-600 rounded-lg">
+                <MapPin className="h-3 w-3 text-white" />
+              </div>
+              <h3 className="text-base font-semibold text-slate-800">บาร์โค้ดและตำแหน่งจัดเก็บ</h3>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label htmlFor="barcode" className="text-xs font-semibold text-slate-700">บาร์โค้ดสินค้า</Label>
+                <Input
+                  id="barcode"
+                  value={formData.barcode}
+                  onChange={(e) => setFormData({...formData, barcode: e.target.value})}
+                  placeholder="สแกนหรือป้อนบาร์โค้ด"
+                  className="h-9 text-sm border-2 border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 bg-white hover:bg-slate-50 transition-all duration-200 shadow-sm hover:shadow-md rounded-lg"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label htmlFor="location" className="text-xs font-semibold text-slate-700">ตำแหน่งจัดเก็บ</Label>
+                <Input
+                  id="location"
+                  value={formData.location}
+                  onChange={(e) => setFormData({...formData, location: e.target.value})}
+                  placeholder="เช่น A-01-01, ชั้น 2"
+                  className="h-9 text-sm border-2 border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 bg-white hover:bg-slate-50 transition-all duration-200 shadow-sm hover:shadow-md rounded-lg"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Pricing Section */}
+          <div className="space-y-3">
+            <div className="flex items-center space-x-2 mb-2">
+              <div className="p-1.5 bg-gradient-to-r from-green-500 to-emerald-600 rounded-lg">
+                <DollarSign className="h-3 w-3 text-white" />
+              </div>
+              <h3 className="text-base font-semibold text-slate-800">ราคาและต้นทุน</h3>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label htmlFor="cost_price" className="text-xs font-semibold text-slate-700">ราคาต้นทุน (บาท)</Label>
+                <div className="relative">
+                  <Input
+                    id="cost_price"
+                    type="number"
+                    step="0.01"
+                    value={formData.cost_price}
+                    onChange={(e) => setFormData({...formData, cost_price: parseFloat(e.target.value) || 0})}
+                    placeholder="0.00"
+                    className="h-9 text-sm border-2 border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 bg-white hover:bg-slate-50 transition-all duration-200 shadow-sm hover:shadow-md rounded-lg pl-7"
+                  />
+                  <span className="absolute left-2 top-1/2 transform -translate-y-1/2 text-slate-500 text-xs">฿</span>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <Label htmlFor="selling_price" className="text-xs font-semibold text-slate-700 flex items-center">
+                  <span className="text-red-500 mr-1">*</span>
+                  ราคาขาย (บาท)
+                </Label>
+                <div className="relative">
+                  <Input
+                    id="selling_price"
+                    type="number"
+                    step="0.01"
+                    value={formData.selling_price}
+                    onChange={(e) => setFormData({...formData, selling_price: parseFloat(e.target.value) || 0})}
+                    placeholder="0.00"
+                    className="h-9 text-sm border-2 border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 bg-white hover:bg-slate-50 transition-all duration-200 shadow-sm hover:shadow-md rounded-lg pl-7"
+                  />
+                  <span className="absolute left-2 top-1/2 transform -translate-y-1/2 text-slate-500 text-xs">฿</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Stock Management Section */}
+          <div className="space-y-3">
+            <div className="flex items-center space-x-2 mb-2">
+              <div className="p-1.5 bg-gradient-to-r from-indigo-500 to-blue-600 rounded-lg">
+                <BarChart3 className="h-3 w-3 text-white" />
+              </div>
+              <h3 className="text-base font-semibold text-slate-800">การจัดการสต็อก</h3>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label htmlFor="stock_quantity" className="text-xs font-semibold text-slate-700">สต็อกปัจจุบัน</Label>
+                <Input
+                  id="stock_quantity"
+                  type="number"
+                  value={formData.stock_quantity}
+                  onChange={(e) => setFormData({...formData, stock_quantity: parseInt(e.target.value) || 0})}
+                  placeholder="0"
+                  className="h-9 text-sm border-2 border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 bg-white hover:bg-slate-50 transition-all duration-200 shadow-sm hover:shadow-md rounded-lg"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label htmlFor="min_stock_level" className="text-xs font-semibold text-slate-700">สต็อกขั้นต่ำ</Label>
+                <Input
+                  id="min_stock_level"
+                  type="number"
+                  value={formData.min_stock_level}
+                  onChange={(e) => setFormData({...formData, min_stock_level: parseInt(e.target.value) || 0})}
+                  placeholder="0"
+                  className="h-9 text-sm border-2 border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 bg-white hover:bg-slate-50 transition-all duration-200 shadow-sm hover:shadow-md rounded-lg"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Expiry Date Section */}
+          <div className="space-y-3">
+            <div className="flex items-center space-x-2 mb-2">
+              <div className="p-1.5 bg-gradient-to-r from-red-500 to-pink-600 rounded-lg">
+                <AlertCircle className="h-3 w-3 text-white" />
+              </div>
+              <h3 className="text-base font-semibold text-slate-800">วันหมดอายุ</h3>
+            </div>
+            
             <div className="space-y-2">
-              <Label>วันหมดอายุ *</Label>
+              <Label className="text-xs font-semibold text-slate-700">วันหมดอายุ</Label>
               <Popover>
                 <PopoverTrigger asChild>
                   <Button
                     variant="outline"
-                    className={cn(
-                      "w-full justify-start text-left font-normal",
-                      !expiryDate && "text-muted-foreground"
-                    )}
+                    className="w-full h-9 justify-start text-left font-normal text-sm border-2 border-slate-200 hover:border-emerald-500 hover:bg-slate-50 bg-white transition-all duration-200 shadow-sm hover:shadow-md rounded-lg"
                   >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {expiryDate ? format(expiryDate, "dd/MM/yyyy") : "เลือกวันหมดอายุ"}
+                    <CalendarIcon className="mr-2 h-3 w-3 text-slate-500" />
+                    {formData.expiry_date ? format(formData.expiry_date, 'dd/MM/yyyy', { locale: th }) : 'เลือกวันหมดอายุ'}
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
+                <PopoverContent className="w-auto p-0 rounded-lg border-2 border-slate-200 shadow-xl" align="start">
                   <Calendar
                     mode="single"
-                    selected={expiryDate}
-                    onSelect={setExpiryDate}
-                    disabled={(date) => date < new Date()}
+                    selected={formData.expiry_date || undefined}
+                    onSelect={(date) => setFormData({...formData, expiry_date: date || null})}
                     initialFocus
+                    className={cn("p-3 pointer-events-auto")}
                   />
                 </PopoverContent>
               </Popover>
-              <p className="text-xs text-muted-foreground">
-                หมวดหมู่ยาต้องระบุวันหมดอายุ
-              </p>
             </div>
-          )}
+          </div>
 
-          <div className="flex justify-end space-x-2 pt-4">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+          {/* Action Buttons */}
+          <div className="flex justify-end space-x-3 pt-6 border-t border-slate-200">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              className="h-11 px-6 text-sm font-semibold border-2 border-slate-300 hover:border-slate-400 hover:bg-slate-50 bg-white transition-all duration-200 shadow-sm hover:shadow-md rounded-xl"
+            >
               ยกเลิก
             </Button>
-            <Button type="submit" disabled={isLoading}>
+            <Button
+              type="submit"
+              disabled={isLoading}
+              className="h-11 px-8 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white text-sm font-bold shadow-xl hover:shadow-2xl transition-all duration-200 rounded-xl border-0"
+            >
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   กำลังบันทึก...
                 </>
               ) : (
-                'บันทึกการแก้ไข'
+                <>
+                  <CheckCircle2 className="mr-2 h-4 w-4" />
+                  บันทึกการแก้ไข
+                </>
               )}
             </Button>
           </div>
         </form>
-      </DialogContent>
-    </Dialog>
+    </ResponsiveModal>
   );
 }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -31,11 +31,29 @@ import {
   Users,
   Building2,
   Bell,
-  Settings
+  Settings,
+  RefreshCw,
+  Download,
+  Share2,
+  MoreHorizontal,
+  AlertTriangle,
+  Info,
+  Zap
 } from 'lucide-react';
 import { api, type BudgetRequest as DBBudgetRequest, type Approval as ApprovalInfo } from '@/lib/apiService';
 import { Layout } from '@/components/Layout/Layout';
 import { PageHeader } from '@/components/Layout/PageHeader';
+import { useToast } from '@/hooks/use-toast';
+import { 
+  ProductsStylePageLayout, 
+  ProductsStylePageHeader, 
+  ProductsStyleStatsCards, 
+  ProductsStyleBulkActionsBar, 
+  ProductsStyleDeleteConfirmationDialog,
+  TableColumn 
+} from '@/components/ui/products-style-components';
+import { ProductsStyleDataTable } from '@/components/ui/products-style-data-table';
+import { ProductsStylePagination } from '@/components/ui/products-style-pagination';
 
 // Function to convert number to Thai text
 const convertToThaiText = (num: number): string => {
@@ -72,6 +90,7 @@ const convertToThaiText = (num: number): string => {
 const ApprovalPage: React.FC = () => {
   const { request_id } = useParams<{ request_id: string }>();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [budgetRequest, setBudgetRequest] = useState<DBBudgetRequest | null>(null);
   const [approvalInfo, setApprovalInfo] = useState<ApprovalInfo | null>(null);
   const [pendingRequests, setPendingRequests] = useState<DBBudgetRequest[]>([]);
@@ -88,6 +107,12 @@ const ApprovalPage: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<string>('PENDING');
   const [amountFilter, setAmountFilter] = useState<string>('ALL');
   const [showFilters, setShowFilters] = useState(false);
+  const [sortField, setSortField] = useState<string>('request_date');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [selectedRequests, setSelectedRequests] = useState<string[]>([]);
+  const [viewMode, setViewMode] = useState<'card' | 'table'>('card');
 
   useEffect(() => {
     if (request_id) {
@@ -96,6 +121,331 @@ const ApprovalPage: React.FC = () => {
       fetchPendingRequests();
     }
   }, [request_id]);
+
+  // Filtered and sorted requests
+  const filteredRequests = useMemo(() => {
+    if (!Array.isArray(allRequests)) {
+      return [];
+    }
+    
+    return allRequests.filter(request => {
+      // Search term filter
+      if (searchTerm) {
+        const searchLower = searchTerm.toLowerCase();
+        const matchesSearch = 
+          request.request_no?.toLowerCase().includes(searchLower) ||
+          request.requester?.toLowerCase().includes(searchLower) ||
+          request.account_code?.toLowerCase().includes(searchLower);
+        if (!matchesSearch) return false;
+      }
+      
+      // Status filter
+      if (statusFilter !== 'ALL' && request.status !== statusFilter) {
+        return false;
+      }
+      
+      // Amount filter
+      if (amountFilter !== 'ALL') {
+        const amount = parseFloat(request.amount.toString());
+        switch (amountFilter) {
+          case 'UNDER_1000':
+            if (amount >= 1000) return false;
+            break;
+          case '1000_5000':
+            if (amount < 1000 || amount > 5000) return false;
+            break;
+          case '5000_10000':
+            if (amount < 5000 || amount > 10000) return false;
+            break;
+          case 'OVER_10000':
+            if (amount <= 10000) return false;
+            break;
+        }
+      }
+      
+      return true;
+    });
+  }, [allRequests, searchTerm, statusFilter, amountFilter]);
+
+  // Sorted requests
+  const sortedRequests = useMemo(() => {
+    return [...filteredRequests].sort((a, b) => {
+      let aValue: any = a[sortField as keyof DBBudgetRequest];
+      let bValue: any = b[sortField as keyof DBBudgetRequest];
+      
+      if (sortField === 'amount') {
+        aValue = parseFloat(aValue?.toString() || '0');
+        bValue = parseFloat(bValue?.toString() || '0');
+      } else if (sortField === 'request_date') {
+        aValue = new Date(aValue).getTime();
+        bValue = new Date(bValue).getTime();
+      } else {
+        aValue = aValue?.toString().toLowerCase() || '';
+        bValue = bValue?.toString().toLowerCase() || '';
+      }
+      
+      if (sortDirection === 'asc') {
+        return aValue > bValue ? 1 : -1;
+      } else {
+        return aValue < bValue ? 1 : -1;
+      }
+    });
+  }, [filteredRequests, sortField, sortDirection]);
+
+  // Paginated requests
+  const paginatedRequests = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return sortedRequests.slice(startIndex, endIndex);
+  }, [sortedRequests, currentPage, itemsPerPage]);
+
+  // Statistics
+  const stats = useMemo(() => {
+    const total = allRequests.length;
+    const pending = allRequests.filter(r => r.status === 'PENDING').length;
+    const approved = allRequests.filter(r => r.status === 'APPROVED').length;
+    const rejected = allRequests.filter(r => r.status === 'REJECTED').length;
+    const totalAmount = allRequests.reduce((sum, r) => sum + parseFloat(r.amount.toString()), 0);
+    
+    return { total, pending, approved, rejected, totalAmount };
+  }, [allRequests]);
+
+  // Bulk actions handlers
+  const handleSelectRequest = (requestId: string) => {
+    setSelectedRequests(prev => 
+      prev.includes(requestId) 
+        ? prev.filter(id => id !== requestId)
+        : [...prev, requestId]
+    );
+  };
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedRequests(paginatedRequests.map(r => r.id.toString()));
+    } else {
+      setSelectedRequests([]);
+    }
+  };
+
+  const handleBulkApprove = async () => {
+    if (selectedRequests.length === 0) return;
+    
+    try {
+      setIsLoading(true);
+      for (const requestId of selectedRequests) {
+        await api.updateBudgetRequest(requestId, {
+          status: 'APPROVED',
+          approved_by: 'ผู้บริหาร',
+          approved_at: new Date().toISOString()
+        });
+      }
+      
+      toast({
+        title: "อนุมัติสำเร็จ",
+        description: `อนุมัติคำขอ ${selectedRequests.length} รายการเรียบร้อยแล้ว`,
+        variant: "default"
+      });
+      
+      setSelectedRequests([]);
+      await fetchPendingRequests();
+    } catch (error) {
+      toast({
+        title: "เกิดข้อผิดพลาด",
+        description: "ไม่สามารถอนุมัติคำขอได้",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleBulkReject = async () => {
+    if (selectedRequests.length === 0) return;
+    
+    try {
+      setIsLoading(true);
+      for (const requestId of selectedRequests) {
+        await api.updateBudgetRequest(requestId, {
+          status: 'REJECTED',
+          approved_by: 'ผู้บริหาร',
+          approved_at: new Date().toISOString()
+        });
+      }
+      
+      toast({
+        title: "ปฏิเสธสำเร็จ",
+        description: `ปฏิเสธคำขอ ${selectedRequests.length} รายการเรียบร้อยแล้ว`,
+        variant: "default"
+      });
+      
+      setSelectedRequests([]);
+      await fetchPendingRequests();
+    } catch (error) {
+      toast({
+        title: "เกิดข้อผิดพลาด",
+        description: "ไม่สามารถปฏิเสธคำขอได้",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  const handleRefresh = () => {
+    if (request_id) {
+      fetchBudgetRequest(request_id);
+    } else {
+      fetchPendingRequests();
+    }
+  };
+
+  const handleClearSelection = () => {
+    setSelectedRequests([]);
+  };
+
+  const handleFilter = () => {
+    setShowFilters(!showFilters);
+  };
+
+  const clearFilters = () => {
+    setSearchTerm('');
+    setStatusFilter('PENDING');
+    setAmountFilter('ALL');
+  };
+
+  const hasActiveFilters = searchTerm || statusFilter !== 'PENDING' || amountFilter !== 'ALL';
+
+  // Table columns definition
+  const columns: TableColumn[] = [
+    {
+      key: 'request_no',
+      title: 'รหัสคำขอ',
+      sortable: true,
+      render: (value, row) => (
+        <div className="font-semibold text-blue-600">
+          {value}
+        </div>
+      )
+    },
+    {
+      key: 'requester',
+      title: 'ผู้ขอ',
+      sortable: true,
+      render: (value) => (
+        <div className="flex items-center gap-2">
+          <User className="h-4 w-4 text-gray-500" />
+          <span>{value}</span>
+        </div>
+      )
+    },
+    {
+      key: 'amount',
+      title: 'จำนวนเงิน',
+      sortable: true,
+      render: (value) => (
+        <div className="text-right">
+          <div className="font-semibold text-green-600">
+            ฿{parseFloat(value.toString()).toLocaleString('th-TH')}
+          </div>
+        </div>
+      )
+    },
+    {
+      key: 'account_code',
+      title: 'รหัสบัญชี',
+      sortable: true,
+      render: (value, row) => (
+        <div>
+          <div className="font-medium">{value}</div>
+          {row.account_name && (
+            <div className="text-sm text-gray-500">{row.account_name}</div>
+          )}
+        </div>
+      )
+    },
+    {
+      key: 'request_date',
+      title: 'วันที่ขอ',
+      sortable: true,
+      render: (value) => (
+        <div className="flex items-center gap-2">
+          <Calendar className="h-4 w-4 text-gray-500" />
+          <span>{new Date(value).toLocaleDateString('th-TH')}</span>
+        </div>
+      )
+    },
+    {
+      key: 'status',
+      title: 'สถานะ',
+      sortable: true,
+      render: (value) => (
+        <Badge 
+          variant={value === 'PENDING' ? 'secondary' : 
+                 value === 'APPROVED' ? 'default' : 'destructive'}
+          className={`px-3 py-1 text-sm font-bold ${
+            value === 'PENDING' 
+              ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white border-0' 
+              : value === 'APPROVED' 
+                ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white border-0'
+                : 'bg-gradient-to-r from-red-500 to-rose-500 text-white border-0'
+          }`}
+        >
+          {value === 'PENDING' ? (
+            <>
+              <Clock className="h-3 w-3 mr-1" />
+              รอการอนุมัติ
+            </>
+          ) : value === 'APPROVED' ? (
+            <>
+              <CheckCircle className="h-3 w-3 mr-1" />
+              อนุมัติแล้ว
+            </>
+          ) : (
+            <>
+              <XCircle className="h-3 w-3 mr-1" />
+              ปฏิเสธ
+            </>
+          )}
+        </Badge>
+      )
+    },
+    {
+      key: 'actions',
+      title: 'การดำเนินการ',
+      sortable: false,
+      render: (value, row) => (
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => navigate(`/approval/${row.id}`)}
+            className="h-8 px-3"
+          >
+            <Eye className="h-4 w-4 mr-1" />
+            {row.status === 'PENDING' ? 'พิจารณา' : 'ดู'}
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => handlePrint(row)}
+            className="h-8 px-3"
+          >
+            <Printer className="h-4 w-4 mr-1" />
+            พิมพ์
+          </Button>
+        </div>
+      )
+    }
+  ];
 
   const fetchPendingRequests = async () => {
     try {
@@ -377,7 +727,7 @@ ${remark ? `หมายเหตุจากผู้อนุมัติ: ${r
       setConfirmationText('');
       
       // Navigate back to approval list
-      navigate('/approval/list');
+      navigate('/approval');
     } catch (err) {
       console.error('Error approving request:', err);
       setError('ไม่สามารถอนุมัติคำขอได้');
@@ -427,7 +777,7 @@ ${remark ? `หมายเหตุจากผู้อนุมัติ: ${r
       setConfirmationText('');
       
       // Navigate back to approval list
-      navigate('/approval/list');
+      navigate('/approval');
     } catch (err) {
       console.error('Error rejecting request:', err);
       setError('ไม่สามารถปฏิเสธคำขอได้');
@@ -683,227 +1033,177 @@ ${remark ? `หมายเหตุจากผู้อนุมัติ: ${r
       );
     }
 
-    const filteredRequests = getFilteredRequests();
-    const stats = getStatusStats();
-
     return (
-      <Layout hideHeader={true}>
-        <div className="w-full space-y-6 pb-8">
-          {/* Professional Page Header */}
-          <PageHeader 
-            title="พิจารณาคำขอใช้งบประมาณ"
-            description="ระบบพิจารณาและอนุมัติคำขอใช้งบประมาณอย่างเป็นระบบ"
-            icon={Building2}
-            stats={[
+      <ProductsStylePageLayout>
+        {/* Page Header */}
+        <ProductsStylePageHeader
+          title="พิจารณาคำขอใช้งบประมาณ"
+          searchPlaceholder="ค้นหาคำขอใช้งบประมาณ..."
+          searchValue={searchTerm}
+          onSearchChange={setSearchTerm}
+          onRefresh={handleRefresh}
+          scannerDetected={false}
+          actionButtons={
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleFilter}
+                className={`h-9 px-3 rounded-lg transition-all duration-200 ${
+                  showFilters 
+                    ? 'bg-blue-500 text-white border-blue-500' 
+                    : 'bg-white/10 backdrop-blur-sm border-white/20 hover:bg-white/20 text-white hover:text-white'
+                }`}
+              >
+                <Filter className="h-4 w-4 mr-2" />
+                ตัวกรอง
+              </Button>
+            </div>
+          }
+        />
+
+        {/* Stats Cards */}
+        <ProductsStyleStatsCards
+          cards={[
+            {
+              title: "รอการอนุมัติ",
+              value: stats.pending.toString(),
+              icon: <Clock className="h-6 w-6" />,
+              color: "orange"
+            },
+            {
+              title: "อนุมัติแล้ว",
+              value: stats.approved.toString(),
+              icon: <CheckCircle className="h-6 w-6" />,
+              color: "green"
+            },
+            {
+              title: "ปฏิเสธ",
+              value: stats.rejected.toString(),
+              icon: <XCircle className="h-6 w-6" />,
+              color: "red"
+            },
+            {
+              title: "มูลค่ารวม",
+              value: `฿${stats.totalAmount.toLocaleString('th-TH')}`,
+              icon: <TrendingUp className="h-6 w-6" />,
+              color: "teal"
+            }
+          ]}
+        />
+
+        {/* Bulk Actions Bar */}
+        {selectedRequests.length > 0 && (
+          <ProductsStyleBulkActionsBar
+            selectedCount={selectedRequests.length}
+            onClearSelection={handleClearSelection}
+            actions={[
               {
-                label: "รอการอนุมัติ",
-                value: stats.pending.toString(),
-                icon: Clock,
-                gradient: "from-orange-600 to-amber-600"
-              },
-              {
-                label: "อนุมัติแล้ว",
-                value: stats.approved.toString(),
+                label: "อนุมัติทั้งหมด",
                 icon: CheckCircle,
-                gradient: "from-emerald-600 to-teal-600"
+                onClick: handleBulkApprove,
+                variant: "default"
               },
               {
-                label: "ปฏิเสธ",
-                value: stats.rejected.toString(),
+                label: "ปฏิเสธทั้งหมด",
                 icon: XCircle,
-                gradient: "from-red-600 to-pink-600"
-              },
-              {
-                label: "มูลค่ารวม",
-                value: `฿${stats.totalAmount.toLocaleString('th-TH')}`,
-                icon: TrendingUp,
-                gradient: "from-blue-600 to-cyan-600"
+                onClick: handleBulkReject,
+                variant: "destructive"
               }
             ]}
           />
+        )}
 
-
-          {/* Results Header */}
-          <div className="flex justify-between items-center mb-6">
-            <div>
-              <h2 className="text-2xl font-bold text-gray-800">รายการคำขอ</h2>
-              <p className="text-gray-600">พบ {filteredRequests.length} รายการ</p>
-            </div>
-            <div className="flex gap-2">
-              <Button 
-                onClick={() => {
-                  navigate('/approval/list');
-                }}
-                className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold px-6 py-2 rounded-lg shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200 border-0"
-              >
-                <FileText className="h-4 w-4 mr-2" />
-                ประวัติการอนุมัติ
-              </Button>
-            </div>
-          </div>
-
-          {filteredRequests.length === 0 ? (
-            <Card className="bg-gradient-to-br from-gray-50 via-white to-slate-50 border-2 border-gray-200 shadow-xl">
-              <CardContent className="p-12 text-center">
-                <div className="p-4 bg-gradient-to-br from-green-100 to-emerald-100 rounded-full w-20 h-20 mx-auto mb-6 flex items-center justify-center">
-                  <CheckCircle className="h-10 w-10 text-green-600" />
+        {/* Filter Controls */}
+        {showFilters && (
+          <Card className="mb-4">
+            <CardContent className="p-4">
+              <div className="flex flex-wrap items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="status-filter">สถานะ:</Label>
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger className="w-40">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ALL">ทั้งหมด</SelectItem>
+                      <SelectItem value="PENDING">รอการอนุมัติ</SelectItem>
+                      <SelectItem value="APPROVED">อนุมัติแล้ว</SelectItem>
+                      <SelectItem value="REJECTED">ไม่อนุมัติ</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
-                <h3 className="text-xl font-semibold text-gray-800 mb-2">ไม่มีรายการรอการอนุมัติ</h3>
-                <p className="text-gray-600 mb-6">ทุกคำขอได้รับการพิจารณาเรียบร้อยแล้ว</p>
-                <Button 
-                  onClick={() => {
-                    navigate('/approval/list');
-                  }} 
-                  className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white"
+                
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="amount-filter">จำนวนเงิน:</Label>
+                  <Select value={amountFilter} onValueChange={setAmountFilter}>
+                    <SelectTrigger className="w-40">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ALL">ทั้งหมด</SelectItem>
+                      <SelectItem value="UNDER_1000">ต่ำกว่า 1,000</SelectItem>
+                      <SelectItem value="1000_5000">1,000 - 5,000</SelectItem>
+                      <SelectItem value="5000_10000">5,000 - 10,000</SelectItem>
+                      <SelectItem value="OVER_10000">มากกว่า 10,000</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={clearFilters}
+                  disabled={!hasActiveFilters}
                 >
-                  <FileText className="h-4 w-4 mr-2" />
-                  ดูประวัติการอนุมัติ
+                  <X className="h-4 w-4 mr-2" />
+                  ล้างตัวกรอง
                 </Button>
-              </CardContent>
-            </Card>
-            ) : (
-              <div className="grid gap-6">
-                {filteredRequests.map((request) => (
-                  <Card key={request.id} className="bg-gradient-to-br from-white via-blue-50 to-cyan-50 border-2 border-blue-200 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1">
-                    <CardContent className="p-6">
-                      <div className="flex justify-between items-start mb-6">
-                        <div className="flex items-center gap-4">
-                          <div className="p-3 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl">
-                            <FileText className="h-6 w-6 text-white" />
-                          </div>
-                          <div>
-                            <h3 className="text-xl font-bold text-slate-700 mb-1">
-                              {request.request_no}
-                            </h3>
-                            <p className="text-sm text-gray-600 flex items-center">
-                              <User className="h-4 w-4 mr-1" />
-                              {request.requester}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-4">
-                          <div className="text-right">
-                            <p className="text-2xl font-bold text-green-600">
-                              ฿{parseFloat(request.amount.toString()).toLocaleString('th-TH')}
-                            </p>
-                            <p className="text-xs text-gray-500">จำนวนเงิน</p>
-                          </div>
-                          <div className="flex flex-col items-end gap-2">
-                            <Badge 
-                              variant={request.status === 'PENDING' ? 'secondary' : 
-                                     request.status === 'APPROVED' ? 'default' : 'destructive'}
-                              className={`px-4 py-2 text-sm font-bold ${
-                                request.status === 'PENDING' 
-                                  ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white border-0' 
-                                  : request.status === 'APPROVED' 
-                                    ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white border-0'
-                                    : 'bg-gradient-to-r from-red-500 to-rose-500 text-white border-0'
-                              }`}
-                            >
-                              {request.status === 'PENDING' ? (
-                                <>
-                                  <Clock className="h-4 w-4 mr-1" />
-                                  รอการอนุมัติ
-                                </>
-                              ) : request.status === 'APPROVED' ? (
-                                <>
-                                  <CheckCircle className="h-4 w-4 mr-1" />
-                                  อนุมัติแล้ว
-                                </>
-                              ) : (
-                                <>
-                                  <XCircle className="h-4 w-4 mr-1" />
-                                  ปฏิเสธ
-                                </>
-                              )}
-                            </Badge>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                        <div className="flex items-center gap-3">
-                          <div className="p-2 bg-purple-100 rounded-lg">
-                            <CreditCard className="h-5 w-5 text-purple-600" />
-                          </div>
-                          <div>
-                            <p className="text-sm text-gray-500">รหัสบัญชี</p>
-                            <p className="font-semibold text-slate-700">
-                              {request.account_code}
-                            </p>
-                            {request.account_name && (
-                              <p className="text-xs text-gray-600">{request.account_name}</p>
-                            )}
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-3">
-                          <div className="p-2 bg-orange-100 rounded-lg">
-                            <Calendar className="h-5 w-5 text-orange-600" />
-                          </div>
-                          <div>
-                            <p className="text-sm text-gray-500">วันที่ขอ</p>
-                            <p className="font-semibold text-slate-700">
-                              {new Date(request.request_date).toLocaleDateString('th-TH')}
-                            </p>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-3">
-                          <div className="p-2 bg-green-100 rounded-lg">
-                            <Package className="h-5 w-5 text-green-600" />
-                          </div>
-                          <div>
-                            <p className="text-sm text-gray-500">รายการวัสดุ</p>
-                            <p className="font-semibold text-slate-700">
-                              {request.material_list?.length || 0} รายการ
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-
-
-                      <div className="flex gap-3">
-                        {request.status === 'PENDING' && (
-                          <div className="relative group flex-1">
-                            <div className="absolute -inset-0.5 bg-gradient-to-r from-amber-500 to-orange-500 rounded-xl blur opacity-75 group-hover:opacity-100 transition duration-300"></div>
-                            <Button
-                              onClick={() => navigate(`/approval/${request.id}`)}
-                              className="relative w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-bold py-3 rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 border-0"
-                            >
-                              <div className="flex items-center justify-center space-x-2">
-                                <div className="p-1 bg-white/20 rounded-full">
-                                  <Check className="h-4 w-4" />
-                                </div>
-                                <span>อนุมัติ/ปฏิเสธ</span>
-                              </div>
-                            </Button>
-                          </div>
-                        )}
-                        {request.status !== 'PENDING' && (
-                          <div className="relative group flex-1">
-                            <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-xl blur opacity-75 group-hover:opacity-100 transition duration-300"></div>
-                            <Button
-                              onClick={() => navigate(`/approval/${request.id}`)}
-                              className="relative w-full bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white font-bold py-3 rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 border-0"
-                            >
-                              <div className="flex items-center justify-center space-x-2">
-                                <div className="p-1 bg-white/20 rounded-full">
-                                  <Eye className="h-4 w-4" />
-                                </div>
-                                <span>ดูรายละเอียด</span>
-                              </div>
-                            </Button>
-                          </div>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
               </div>
-            )}
-        </div>
-      </Layout>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Data Table */}
+        <ProductsStyleDataTable
+          title="รายการคำขอใช้งบประมาณ"
+          description={`พบ ${filteredRequests.length} รายการ`}
+          data={paginatedRequests}
+          columns={columns}
+          currentViewMode={viewMode}
+          onViewModeChange={setViewMode}
+          onSort={handleSort}
+          onRefresh={handleRefresh}
+          onClearSelection={handleClearSelection}
+          selectedItems={selectedRequests}
+          onSelectItem={handleSelectRequest}
+          onSelectAll={handleSelectAll}
+          onDelete={(id) => {
+            // Handle individual delete if needed
+            console.log('Delete request:', id);
+          }}
+          onFilter={handleFilter}
+          sortField={sortField}
+          sortDirection={sortDirection}
+          loading={isLoading}
+          emptyMessage="ไม่พบคำขอใช้งบประมาณ"
+          getItemId={(item) => item.id.toString()}
+          getItemName={(item) => item.request_no}
+          currentPage={currentPage}
+          totalPages={Math.ceil(filteredRequests.length / itemsPerPage)}
+        />
+
+        {/* Pagination */}
+        <ProductsStylePagination
+          currentPage={currentPage}
+          totalPages={Math.ceil(filteredRequests.length / itemsPerPage)}
+          totalItems={filteredRequests.length}
+          itemsPerPage={itemsPerPage}
+          onPageChange={setCurrentPage}
+          onItemsPerPageChange={setItemsPerPage}
+          itemsPerPageOptions={[5, 10, 20, 50]}
+        />
+      </ProductsStylePageLayout>
     );
   }
 

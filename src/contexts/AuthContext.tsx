@@ -1,243 +1,162 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { 
-  signInWithEmailAndPassword, 
-  signOut, 
-  onAuthStateChanged, 
-  User as FirebaseUser,
-  createUserWithEmailAndPassword,
-  updateProfile
-} from 'firebase/auth';
-import { auth } from '../lib/firebase';
-import { auth as apiAuth } from '../lib/apiService';
-import { sessionManager } from '../lib/sessionManager';
-import { UserRole } from '../lib/rbac';
-import { logUserAction, AuditAction } from '../lib/auditLogger';
-import { getLogoutRedirectUrl } from '../config/environment';
-
-interface User {
-  id: string;
-  email: string;
-  displayName?: string;
-  role: UserRole;
-  isActive: boolean;
-  department?: string;
-  createdAt: Date;
-  lastLoginAt?: Date;
-}
+import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { User as FirebaseUser } from 'firebase/auth';
+import { userService, User } from '@/lib/userService';
+import { auth } from '@/lib/firebase';
 
 interface AuthContextType {
-  user: User | null;
-  isAuthenticated: boolean;
-  login: (email: string, password: string) => Promise<boolean>;
-  register: (email: string, password: string, displayName?: string) => Promise<boolean>;
-  logout: () => void;
-  loading: boolean;
-  sessionWarning: boolean;
-  timeRemaining: number;
-  extendSession: () => void;
+  currentUser: User | null;
+  firebaseUser: FirebaseUser | null;
+  isLoading: boolean;
+  signIn: (email: string, password: string) => Promise<void>;
+  signOut: () => Promise<void>;
+  hasPermission: (permission: string) => boolean;
+  hasRole: (role: string) => boolean;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-export function useAuth() {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
-}
 
 interface AuthProviderProps {
   children: ReactNode;
 }
 
 export function AuthProvider({ children }: AuthProviderProps) {
-  const [user, setUser] = useState<User | null>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [sessionWarning, setSessionWarning] = useState(false);
-  const [timeRemaining, setTimeRemaining] = useState(0);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Listen for authentication state changes
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
-      if (firebaseUser) {
+    const unsubscribe = auth.onAuthStateChanged(async (user) => {
+      if (user) {
+        setFirebaseUser(user);
         try {
-          // Get Firebase ID Token
-          const idToken = await firebaseUser.getIdToken();
-          console.log('🔐 Firebase ID Token obtained:', idToken.substring(0, 20) + '...');
-          
-          // Set token in API service
-          apiAuth.setFirebaseIdToken(idToken);
-          
-          // User is signed in
-          const userData: User = {
-            id: firebaseUser.uid,
-            email: firebaseUser.email || '',
-            displayName: firebaseUser.displayName || undefined,
-            role: firebaseUser.email?.includes('admin') ? UserRole.ADMIN : 
-                  firebaseUser.email?.includes('manager') ? UserRole.MANAGER : 
-                  firebaseUser.email?.includes('staff') ? UserRole.STAFF : UserRole.VIEWER,
-            isActive: true,
-            createdAt: new Date(),
-            lastLoginAt: new Date()
-          };
-          setUser(userData);
-          setIsAuthenticated(true);
-          
-          // Setup session management
-          setupSessionManagement();
+          // ตรวจสอบว่าผู้ใช้มีข้อมูลใน Firestore หรือไม่
+          const userData = await userService.getUserById(user.uid);
+          setCurrentUser(userData);
         } catch (error) {
-          console.error('❌ Error getting Firebase ID Token:', error);
-          setUser(null);
-          setIsAuthenticated(false);
+          console.log('User not found in Firestore, creating new user document...');
+          // ถ้าไม่มีข้อมูลใน Firestore ให้สร้าง user document ใหม่
+          try {
+            const newUser: User = {
+              id: user.uid,
+              email: user.email || '',
+              displayName: user.displayName || 'ผู้ใช้ใหม่',
+              role: 'user', // กำหนดเป็น user เป็นค่าเริ่มต้น
+              isActive: true,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+              lastLoginAt: new Date().toISOString()
+            };
+            
+            // สร้าง user document ใน Firestore
+            await userService.createUserDocument(newUser);
+            setCurrentUser(newUser);
+            console.log('User document created successfully');
+          } catch (createError) {
+            console.error('Error creating user document:', createError);
+            // ถ้าสร้างไม่ได้ ให้ใช้ข้อมูลจาก Firebase Auth
+            const fallbackUser: User = {
+              id: user.uid,
+              email: user.email || '',
+              displayName: user.displayName || 'ผู้ใช้ใหม่',
+              role: 'user',
+              isActive: true,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+              lastLoginAt: new Date().toISOString()
+            };
+            setCurrentUser(fallbackUser);
+          }
         }
       } else {
-        // User is signed out
-        apiAuth.setFirebaseIdToken(null);
-        setUser(null);
-        setIsAuthenticated(false);
-        sessionManager.cleanup();
+        setCurrentUser(null);
+        setFirebaseUser(null);
       }
-      setLoading(false);
+      setIsLoading(false);
     });
 
-    // Cleanup subscription on unmount
     return () => {
       unsubscribe();
-      sessionManager.cleanup();
     };
   }, []);
 
-  const setupSessionManagement = () => {
-    // Setup session manager callbacks
-    sessionManager.setCallbacks(
-      () => {
-        // On warning
-        setSessionWarning(true);
-        setTimeRemaining(sessionManager.getTimeUntilTimeout());
-      },
-      () => {
-        // On logout
-        setSessionWarning(false);
-        setTimeRemaining(0);
-        logout();
-      }
-    );
+  const loadUserData = async (uid: string) => {
+    try {
+      const userData = await userService.getUserById(uid);
+      setCurrentUser(userData);
+    } catch (error) {
+      console.error('Error loading user data:', error);
+      setCurrentUser(null);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-    // Update time remaining every 30 seconds
-    const interval = setInterval(() => {
-      if (isAuthenticated) {
-        const remaining = sessionManager.getTimeUntilTimeout();
-        setTimeRemaining(remaining);
+  const signIn = async (email: string, password: string) => {
+    try {
+      const user = await userService.signIn(email, password);
+      setCurrentUser(user);
+      setFirebaseUser(await userService.getCurrentUser());
+    } catch (error) {
+      // ถ้า signIn ไม่สำเร็จ ให้ลองใช้ Firebase Auth โดยตรง
+      try {
+        const { signInWithEmailAndPassword } = await import('firebase/auth');
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        setFirebaseUser(userCredential.user);
         
-        if (remaining <= 0) {
-          setSessionWarning(false);
-        }
+        // สร้าง user object จาก Firebase Auth
+        const fallbackUser: User = {
+          id: userCredential.user.uid,
+          email: userCredential.user.email || '',
+          displayName: userCredential.user.displayName || 'ผู้ใช้ใหม่',
+          role: 'user',
+          isActive: true,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          lastLoginAt: new Date().toISOString()
+        };
+        setCurrentUser(fallbackUser);
+      } catch (fallbackError) {
+        throw error; // throw original error
       }
-    }, 30000);
-
-    return () => clearInterval(interval);
-  };
-
-  const login = async (email: string, password: string): Promise<boolean> => {
-    try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      
-      // Get Firebase ID Token after successful login
-      const idToken = await userCredential.user.getIdToken();
-      console.log('🔐 Firebase ID Token obtained after login:', idToken.substring(0, 20) + '...');
-      
-      // Set token in API service
-      apiAuth.setFirebaseIdToken(idToken);
-      
-      // บันทึก audit log
-      const userData = {
-        id: userCredential.user.uid,
-        email: userCredential.user.email || '',
-        role: userCredential.user.email?.includes('admin') ? UserRole.ADMIN : 
-              userCredential.user.email?.includes('manager') ? UserRole.MANAGER : 
-              userCredential.user.email?.includes('staff') ? UserRole.STAFF : UserRole.VIEWER
-      };
-      logUserAction(userData, AuditAction.LOGIN);
-      
-      return true;
-    } catch (error) {
-      console.error('Login error:', error);
-      
-      // บันทึก audit log สำหรับการล็อกอินผิด
-      const userData = {
-        id: 'unknown',
-        email: email,
-        role: UserRole.VIEWER
-      };
-      logUserAction(userData, AuditAction.LOGIN_FAILED, {
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
-      
-      return false;
     }
   };
 
-  const register = async (email: string, password: string, displayName?: string): Promise<boolean> => {
+  const signOut = async () => {
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      if (displayName && userCredential.user) {
-        await updateProfile(userCredential.user, { displayName });
-      }
-      
-      // Get Firebase ID Token after successful registration
-      const idToken = await userCredential.user.getIdToken();
-      console.log('🔐 Firebase ID Token obtained after registration:', idToken.substring(0, 20) + '...');
-      
-      // Set token in API service
-      apiAuth.setFirebaseIdToken(idToken);
-      
-      return true;
+      await userService.signOut();
+      setCurrentUser(null);
+      setFirebaseUser(null);
     } catch (error) {
-      console.error('Registration error:', error);
-      return false;
+      throw error;
     }
   };
 
-  const logout = async () => {
-    try {
-      // บันทึก audit log
-      if (user) {
-        logUserAction(user, AuditAction.LOGOUT);
-      }
-      
-      // Clear Firebase ID Token from API service
-      apiAuth.setFirebaseIdToken(null);
-      
-      // Cleanup session manager
-      sessionManager.cleanup();
-      
-      await signOut(auth);
-      
-      // Redirect ไป URL ที่กำหนดตาม environment
-      window.location.href = getLogoutRedirectUrl();
-    } catch (error) {
-      console.error('Logout error:', error);
-    }
+  const hasPermission = (permission: string): boolean => {
+    if (!currentUser) return false;
+    return userService.hasPermission(currentUser.role, permission);
   };
 
-  const extendSession = () => {
-    sessionManager.extendSession();
-    setSessionWarning(false);
-    setTimeRemaining(sessionManager.getTimeUntilTimeout());
+  const hasRole = (role: string): boolean => {
+    if (!currentUser) return false;
+    return currentUser.role === role;
+  };
+
+  const refreshUser = async () => {
+    if (firebaseUser) {
+      await loadUserData(firebaseUser.uid);
+    }
   };
 
   const value: AuthContextType = {
-    user,
-    isAuthenticated,
-    login,
-    register,
-    logout,
-    loading,
-    sessionWarning,
-    timeRemaining,
-    extendSession
+    currentUser,
+    firebaseUser,
+    isLoading,
+    signIn,
+    signOut,
+    hasPermission,
+    hasRole,
+    refreshUser,
   };
 
   return (
@@ -245,4 +164,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
       {children}
     </AuthContext.Provider>
   );
+}
+
+export function useAuth() {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
 }

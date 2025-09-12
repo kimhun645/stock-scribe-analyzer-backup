@@ -118,7 +118,7 @@ export function DataTable({
   const allSelected = selectedItems.length === data.length && data.length > 0;
 
   return (
-    <Card className={`group relative overflow-hidden backdrop-blur-lg border-0 rounded-2xl shadow-2xl hover:shadow-purple-500/20 transition-all duration-500 hover:-translate-y-2 transform mx-6 sm:mx-8 lg:mx-12 ${className}`}>
+    <Card className={`group relative overflow-hidden backdrop-blur-lg border-0 rounded-2xl shadow-2xl hover:shadow-purple-500/20 transition-all duration-500 hover:-translate-y-2 transform mx-0 ${className}`}>
       <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 via-indigo-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
       <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-purple-400/20 to-indigo-400/20 rounded-full -translate-y-16 translate-x-16 group-hover:scale-110 transition-transform duration-500 blur-sm"></div>
       <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-purple-300/10 to-indigo-300/10 rounded-full -translate-y-16 translate-x-16 group-hover:scale-125 transition-transform duration-700 blur-md"></div>
@@ -269,8 +269,8 @@ export function DataTable({
             <span className="ml-3 text-lg font-medium">กำลังโหลดข้อมูล...</span>
           </div>
         ) : currentViewMode === 'table' ? (
-          <div className="overflow-x-auto bg-white/90 backdrop-blur-sm rounded-2xl border border-purple-100 shadow-inner">
-            <Table>
+          <div className="overflow-x-auto bg-white/90 backdrop-blur-sm rounded-2xl border border-purple-100 shadow-inner w-full">
+            <Table className="w-full min-w-full">
               <TableHeader>
                 <TableRow className="bg-gradient-to-r from-purple-50 via-indigo-50 to-blue-50 hover:from-purple-100 hover:via-indigo-100 hover:to-blue-100 transition-all duration-300 border-b-2 border-purple-200">
                   {onSelectAll && (
@@ -294,7 +294,7 @@ export function DataTable({
                   {visibleColumns.map((column) => (
                     <TableHead 
                       key={column.key}
-                      className={`text-base sm:text-lg font-bold py-4 text-purple-700 ${column.sortable ? 'cursor-pointer hover:bg-purple-100/50 transition-all duration-200 hover:scale-105 group' : ''} ${column.className || ''}`}
+                      className={`text-sm font-semibold py-3 text-purple-700 ${column.sortable ? 'cursor-pointer hover:bg-purple-100/50 transition-all duration-200 hover:scale-105 group' : ''} ${column.className || ''}`}
                       onClick={column.sortable ? () => handleSort(column.key) : undefined}
                     >
                       <div className="flex items-center gap-2 group-hover:text-purple-800">
@@ -306,7 +306,7 @@ export function DataTable({
                     </TableHead>
                   ))}
                   {(onEdit || onDelete || onMore) && (
-                    <TableHead className="text-base sm:text-lg font-bold py-4 text-purple-700 pr-6">
+                    <TableHead className="text-sm font-semibold py-3 text-purple-700 pr-6">
                       <div className="flex items-center gap-2">
                         <MoreVertical className="h-4 w-4 text-purple-500" />
                         <span>การจัดการ</span>

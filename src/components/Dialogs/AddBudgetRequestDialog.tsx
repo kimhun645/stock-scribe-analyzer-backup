@@ -104,7 +104,8 @@ export function AddBudgetRequestDialog({ onSuccess, editRequest }: AddBudgetRequ
     try {
       setIsLoadingRequesters(true);
       const data = await api.getRequesters();
-      setRequesters(data || []);
+      // Ensure data is always an array
+      setRequesters(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error loading requesters:', error);
       setRequesters([]);
@@ -490,7 +491,7 @@ ${requestData.note ? `หมายเหตุ: ${requestData.note}` : ''}
                   <SelectContent>
                     {isLoadingRequesters ? (
                       <SelectItem value="__loading__" disabled>กำลังโหลดรายชื่อผู้ขอ...</SelectItem>
-                    ) : requesters.length === 0 ? (
+                    ) : !requesters || !Array.isArray(requesters) || requesters.length === 0 ? (
                       <SelectItem value="__empty__" disabled>ไม่พบรายชื่อผู้ขอ</SelectItem>
                     ) : (
                       requesters.map((requester) => (

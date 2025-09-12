@@ -14,23 +14,21 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { 
-  Plus, 
   Loader2, 
   X, 
   Package, 
   ArrowUp, 
   ArrowDown, 
   FileText, 
-  Hash, 
-  MessageSquare,
   AlertCircle,
   CheckCircle2,
   TrendingUp,
   TrendingDown,
-  BarChart3
+  Edit,
+  MessageSquare
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { api } from '@/lib/apiService';
+import { api, Movement } from '@/lib/apiService';
 
 interface ProductForMovement {
   id: string;
@@ -39,13 +37,20 @@ interface ProductForMovement {
   current_stock: number;
 }
 
-interface AddMovementDialogProps {
-  onMovementAdded: () => void;
+interface MovementWithProduct extends Movement {
+  product_name: string;
+  product_sku: string;
 }
 
-export function AddMovementDialog({ onMovementAdded }: AddMovementDialogProps) {
+interface EditMovementDialogProps {
+  movement: MovementWithProduct | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onMovementUpdated: () => void;
+}
+
+export function EditMovementDialog({ movement, open, onOpenChange, onMovementUpdated }: EditMovementDialogProps) {
   const { toast } = useToast();
-  const [open, setOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [products, setProducts] = useState<ProductForMovement[]>([]);
   
@@ -69,22 +74,24 @@ export function AddMovementDialog({ onMovementAdded }: AddMovementDialogProps) {
     });
   };
 
-  const handleOpenChange = (newOpen: boolean) => {
-    setOpen(newOpen);
-    if (!newOpen) {
-      resetForm();
-    }
-  };
-
   const updateFormData = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
   useEffect(() => {
-    if (open) {
+    if (open && movement) {
       fetchProducts();
+      // Populate form with movement data
+      setFormData({
+        product_id: movement.product_id || '',
+        type: movement.type || '',
+        quantity: movement.quantity?.toString() || '',
+        reason: movement.reason || '',
+        reference: movement.reference || '',
+        notes: movement.notes || ''
+      });
     }
-  }, [open]);
+  }, [open, movement]);
 
   const fetchProducts = async () => {
     try {
@@ -103,6 +110,15 @@ export function AddMovementDialog({ onMovementAdded }: AddMovementDialogProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    if (!movement?.id) {
+      toast({
+        title: "เกิดข้อผิดพลาด",
+        description: "ไม่พบข้อมูลการเคลื่อนไหวที่ต้องการแก้ไข",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (!formData.product_id || !formData.type || !formData.quantity || !formData.reason) {
       toast({
         title: "กรุณากรอกข้อมูลให้ครบถ้วน",
@@ -129,19 +145,24 @@ export function AddMovementDialog({ onMovementAdded }: AddMovementDialogProps) {
       const product = await api.getProductById(formData.product_id);
       if (!product) throw new Error('ไม่พบสินค้า');
 
+      // Calculate stock difference
+      const originalQuantity = movement.quantity || 0;
+      const quantityDifference = quantity - originalQuantity;
+      const newStock = (product.current_stock || 0) + quantityDifference;
+
       // Check if stock out is possible
-      if (formData.type === 'out' && (product.current_stock || 0) < quantity) {
+      if (newStock < 0) {
         toast({
           title: "สต็อกไม่เพียงพอ",
-          description: `สต็อกปัจจุบัน: ${product.current_stock || 0} ไม่เพียงพอสำหรับการเบิก ${quantity}`,
+          description: `สต็อกปัจจุบัน: ${product.current_stock || 0} ไม่เพียงพอสำหรับการปรับปรุงนี้`,
           variant: "destructive",
         });
         setIsLoading(false);
         return;
       }
 
-      // Add movement record
-      await api.createMovement({
+      // Update movement record
+      await api.updateMovement(movement.id, {
         product_id: formData.product_id,
         type: formData.type,
         quantity: quantity,
@@ -151,28 +172,24 @@ export function AddMovementDialog({ onMovementAdded }: AddMovementDialogProps) {
       });
 
       // Update product stock
-      const newStock = formData.type === 'in' 
-        ? (product.current_stock || 0) + quantity
-        : (product.current_stock || 0) - quantity;
-
       await api.updateProduct(formData.product_id, {
         current_stock: newStock
       });
 
       toast({
-        title: "บันทึกข้อมูลเรียบร้อย",
-        description: `บันทึกการ${formData.type === 'in' ? 'รับเข้า' : 'เบิกออก'} ${quantity} หน่วยเรียบร้อยแล้ว`,
+        title: "แก้ไขข้อมูลเรียบร้อย",
+        description: `แก้ไขการเคลื่อนไหว ${formData.type === 'in' ? 'รับเข้า' : 'เบิกออก'} ${quantity} หน่วยเรียบร้อยแล้ว`,
       });
 
       resetForm();
-      setOpen(false);
-      onMovementAdded();
+      onOpenChange(false);
+      onMovementUpdated();
 
     } catch (error) {
-      console.error('Error adding movement:', error);
+      console.error('Error updating movement:', error);
       toast({
         title: "เกิดข้อผิดพลาด",
-        description: "ไม่สามารถบันทึกข้อมูลได้",
+        description: "ไม่สามารถแก้ไขข้อมูลได้",
         variant: "destructive",
       });
     } finally {
@@ -184,22 +201,15 @@ export function AddMovementDialog({ onMovementAdded }: AddMovementDialogProps) {
   const isStockOut = formData.type === 'out';
   const isStockIn = formData.type === 'in';
   const quantity = parseInt(formData.quantity) || 0;
+  const originalQuantity = movement?.quantity || 0;
+  const quantityDifference = quantity - originalQuantity;
   const newStock = selectedProduct ? 
-    (isStockIn ? (selectedProduct.current_stock || 0) + quantity : (selectedProduct.current_stock || 0) - quantity) : 0;
+    (selectedProduct.current_stock || 0) + quantityDifference : 0;
+
+  if (!movement) return null;
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger asChild>
-        <Button 
-          className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105 h-12 px-8 text-base font-bold rounded-xl border-0"
-          onClick={() => {
-            setOpen(true);
-          }}
-        >
-          <Plus className="h-5 w-5 mr-2" />
-          บันทึกการเคลื่อนไหว
-        </Button>
-      </DialogTrigger>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px] w-[95vw] max-h-[90vh] bg-gradient-to-br from-pink-50 via-yellow-50 to-cyan-50 shadow-2xl border border-pink-200 rounded-2xl relative overflow-hidden p-0">
         {/* Vibrant Background Pattern */}
         <div className="absolute inset-0 bg-gradient-to-br from-pink-50 via-yellow-50 to-cyan-50"></div>
@@ -227,15 +237,15 @@ export function AddMovementDialog({ onMovementAdded }: AddMovementDialogProps) {
         <DialogHeader className="relative z-20 pb-4 px-6 pt-6 border-b border-pink-200/60 bg-gradient-to-r from-white/95 to-pink-50/95 backdrop-blur-sm">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              <div className="p-3 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl shadow-lg">
-                <Package className="h-6 w-6 text-white" />
+              <div className="p-3 bg-gradient-to-br from-orange-500 to-red-600 rounded-2xl shadow-lg">
+                <Edit className="h-6 w-6 text-white" />
               </div>
               <div>
                 <DialogTitle className="text-xl font-bold text-slate-800 tracking-tight">
-                  บันทึกการเคลื่อนไหวสต็อก
+                  แก้ไขการเคลื่อนไหวสต็อก
                 </DialogTitle>
                 <DialogDescription className="text-sm text-slate-600 font-medium mt-1">
-                  บันทึกการรับเข้าหรือเบิกออกสินค้าในระบบ
+                  แก้ไขข้อมูลการเคลื่อนไหวสต็อกในระบบ
                 </DialogDescription>
               </div>
             </div>
@@ -262,7 +272,7 @@ export function AddMovementDialog({ onMovementAdded }: AddMovementDialogProps) {
               </Label>
               <Select value={formData.product_id} onValueChange={(value) => updateFormData('product_id', value)}>
                 <SelectTrigger className="h-9 text-sm border-2 border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 bg-white hover:bg-slate-50 transition-all duration-200 shadow-sm hover:shadow-md rounded-lg">
-                  <SelectValue placeholder="เลือกสินค้าที่ต้องการบันทึกการเคลื่อนไหว" />
+                  <SelectValue placeholder="เลือกสินค้าที่ต้องการแก้ไขการเคลื่อนไหว" />
                 </SelectTrigger>
                 <SelectContent className="relative z-50 rounded-lg border-2 border-slate-200 shadow-xl">
                   {products.map((product) => (
@@ -361,7 +371,7 @@ export function AddMovementDialog({ onMovementAdded }: AddMovementDialogProps) {
                       <TrendingDown className="h-4 w-4 text-red-600" />
                     )}
                     <span className="font-semibold text-gray-800 text-sm">
-                      สต็อกหลังการเคลื่อนไหว:
+                      สต็อกหลังการแก้ไข:
                     </span>
                   </div>
                   <div className={`text-xs font-medium px-2 py-1 rounded ${
@@ -372,11 +382,19 @@ export function AddMovementDialog({ onMovementAdded }: AddMovementDialogProps) {
                     {(newStock || 0).toLocaleString()}
                   </div>
                 </div>
-                {isStockOut && newStock < 0 && (
+                {quantityDifference !== 0 && (
+                  <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded flex items-center">
+                    <AlertCircle className="h-3 w-3 text-blue-600 mr-2" />
+                    <span className="text-xs text-blue-700">
+                      เปลี่ยนแปลง: {quantityDifference > 0 ? '+' : ''}{quantityDifference} หน่วย
+                    </span>
+                  </div>
+                )}
+                {newStock < 0 && (
                   <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded flex items-center">
                     <AlertCircle className="h-3 w-3 text-red-600 mr-2" />
                     <span className="text-xs text-red-700">
-                      ⚠️ สต็อกไม่เพียงพอสำหรับการเบิกออก
+                      ⚠️ สต็อกไม่เพียงพอสำหรับการแก้ไขนี้
                     </span>
                   </div>
                 )}
@@ -486,7 +504,7 @@ export function AddMovementDialog({ onMovementAdded }: AddMovementDialogProps) {
               variant="outline" 
               onClick={() => {
                 resetForm();
-                setOpen(false);
+                onOpenChange(false);
               }}
               className="h-11 px-6 text-sm font-semibold border-2 border-slate-300 hover:border-slate-400 hover:bg-slate-50 bg-white transition-all duration-200 shadow-sm hover:shadow-md rounded-xl"
             >
@@ -494,8 +512,8 @@ export function AddMovementDialog({ onMovementAdded }: AddMovementDialogProps) {
             </Button>
             <Button 
               type="submit" 
-              disabled={isLoading || (isStockOut && newStock < 0)}
-              className="h-11 px-8 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white text-sm font-bold shadow-xl hover:shadow-2xl transition-all duration-200 rounded-xl border-0"
+              disabled={isLoading || newStock < 0}
+              className="h-11 px-8 bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white text-sm font-bold shadow-xl hover:shadow-2xl transition-all duration-200 rounded-xl border-0"
             >
               {isLoading ? (
                 <>
@@ -505,7 +523,7 @@ export function AddMovementDialog({ onMovementAdded }: AddMovementDialogProps) {
               ) : (
                 <>
                   <CheckCircle2 className="mr-2 h-4 w-4" />
-                  บันทึกการเคลื่อนไหว
+                  แก้ไขการเคลื่อนไหว
                 </>
               )}
             </Button>

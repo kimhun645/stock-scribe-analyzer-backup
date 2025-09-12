@@ -15,7 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Plus, Loader2, CalendarIcon, X } from 'lucide-react';
+import { Plus, Loader2, CalendarIcon, X, Package, Tag, Building2, MapPin, DollarSign, BarChart3, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { api } from '@/lib/apiService';
 import { format } from 'date-fns';
@@ -52,6 +52,7 @@ export function AddProductDialog({ onProductAdded }: AddProductDialogProps) {
     category_id: '',
     supplier_id: '',
     unit_price: '',
+    cost_price: '',
     current_stock: '',
     min_stock: '',
     max_stock: '',
@@ -73,6 +74,7 @@ export function AddProductDialog({ onProductAdded }: AddProductDialogProps) {
       category_id: '',
       supplier_id: '',
       unit_price: '',
+      cost_price: '',
       current_stock: '',
       min_stock: '',
       max_stock: '',
@@ -289,6 +291,7 @@ export function AddProductDialog({ onProductAdded }: AddProductDialogProps) {
         category_id: '',
         supplier_id: '',
         unit_price: '',
+        cost_price: '',
         current_stock: '',
         min_stock: '',
         max_stock: '',
@@ -322,7 +325,7 @@ export function AddProductDialog({ onProductAdded }: AddProductDialogProps) {
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <Button 
-          className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 h-12 px-6 text-base font-semibold"
+          className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105 h-12 px-8 text-base font-bold rounded-xl border-0"
           onClick={() => {
             setOpen(true);
           }}
@@ -331,216 +334,336 @@ export function AddProductDialog({ onProductAdded }: AddProductDialogProps) {
           เพิ่มสินค้าใหม่
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[600px] bg-gradient-card shadow-glow border-white/10">
-        <DialogHeader>
-          <DialogTitle className="text-foreground">เพิ่มสินค้าใหม่</DialogTitle>
-          <DialogDescription>
-            เพิ่มสินค้าใหม่ลงในระบบ
-          </DialogDescription>
-          <DialogClose className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
-            <X className="h-4 w-4" />
-            <span className="sr-only">Close</span>
-          </DialogClose>
+      <DialogContent className="sm:max-w-[600px] w-[95vw] max-h-[90vh] bg-gradient-to-br from-pink-50 via-yellow-50 to-cyan-50 shadow-2xl border border-pink-200 rounded-2xl relative overflow-hidden p-0">
+        {/* Vibrant Background Pattern */}
+        <div className="absolute inset-0 bg-gradient-to-br from-pink-50 via-yellow-50 to-cyan-50"></div>
+        <div className="absolute inset-0 bg-gradient-to-tr from-orange-100/30 via-transparent to-green-100/30"></div>
+        <div className="absolute inset-0 bg-gradient-to-bl from-purple-100/20 via-transparent to-pink-100/20"></div>
+        
+        {/* Colorful Accent Lines */}
+        <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-pink-400 via-yellow-400 via-green-400 to-cyan-400"></div>
+        <div className="absolute bottom-0 left-0 w-full h-2 bg-gradient-to-r from-cyan-400 via-purple-400 via-pink-400 to-yellow-400"></div>
+        
+        {/* Vibrant Corner Accents */}
+        <div className="absolute top-4 right-4 w-3 h-3 bg-pink-400 rounded-full shadow-lg"></div>
+        <div className="absolute top-4 right-10 w-2 h-2 bg-yellow-400 rounded-full shadow-md"></div>
+        <div className="absolute top-4 right-16 w-1 h-1 bg-green-400 rounded-full"></div>
+        <div className="absolute bottom-4 left-4 w-3 h-3 bg-cyan-400 rounded-full shadow-lg"></div>
+        <div className="absolute bottom-4 left-10 w-2 h-2 bg-purple-400 rounded-full shadow-md"></div>
+        <div className="absolute bottom-4 left-16 w-1 h-1 bg-orange-400 rounded-full"></div>
+        
+        {/* Floating Colorful Elements */}
+        <div className="absolute top-1/4 left-1/4 w-16 h-16 bg-gradient-to-br from-pink-200/40 to-yellow-200/40 rounded-full"></div>
+        <div className="absolute top-1/3 right-1/3 w-12 h-12 bg-gradient-to-br from-green-200/40 to-cyan-200/40 rounded-full"></div>
+        <div className="absolute bottom-1/4 right-1/4 w-14 h-14 bg-gradient-to-br from-purple-200/40 to-pink-200/40 rounded-full"></div>
+        <div className="absolute bottom-1/3 left-1/3 w-10 h-10 bg-gradient-to-br from-orange-200/40 to-yellow-200/40 rounded-full"></div>
+        
+        <DialogHeader className="relative z-20 pb-4 px-6 pt-6 border-b border-pink-200/60 bg-gradient-to-r from-white/95 to-pink-50/95 backdrop-blur-sm">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div className="p-3 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl shadow-lg">
+                <Package className="h-6 w-6 text-white" />
+              </div>
+              <div>
+                <DialogTitle className="text-xl font-bold text-slate-800 tracking-tight">
+                  เพิ่มสินค้าใหม่
+                </DialogTitle>
+                <DialogDescription className="text-sm text-slate-600 font-medium mt-1">
+                  สร้างสินค้าใหม่ในระบบจัดการคลังสินค้า
+                </DialogDescription>
+              </div>
+            </div>
+            <DialogClose className="text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl p-2 transition-all duration-200 hover:scale-110 z-30 relative -mr-2 -mt-2">
+              <X className="h-5 w-5" />
+            </DialogClose>
+          </div>
         </DialogHeader>
         
-        <form onSubmit={handleSubmit} className="space-y-6 relative z-20">
-          <div className="grid grid-cols-2 gap-6">
-            <div className="space-y-3">
-              <Label htmlFor="name" className="text-base font-semibold text-gray-700">ชื่อสินค้า *</Label>
-              <Input
-                id="name"
-                value={formData.name}
-                onChange={(e) => updateFormData('name', e.target.value)}
-                placeholder="ชื่อสินค้า"
-                className="h-12 text-base border-2 border-blue-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 relative z-30 cursor-text"
-                style={{ position: 'relative', zIndex: 30 }}
-              />
-            </div>
-
-            <div className="space-y-3">
-              <Label htmlFor="sku" className="text-base font-semibold text-gray-700">SKU (ไม่ระบุจะสร้างอัตโนมัติ)</Label>
-              <Input
-                id="sku"
-                value={formData.sku}
-                onChange={(e) => updateFormData('sku', e.target.value)}
-                placeholder="SKU-0001"
-                className="h-12 text-base border-2 border-green-200 focus:border-green-500 focus:ring-2 focus:ring-green-200 relative z-30 cursor-text"
-                style={{ position: 'relative', zIndex: 30 }}
-              />
-            </div>
-          </div>
-
+        <form onSubmit={handleSubmit} className="relative z-10 space-y-4 py-4 px-6 max-h-[calc(90vh-120px)] overflow-y-auto">
+          {/* Basic Information Section */}
           <div className="space-y-3">
-            <Label htmlFor="description" className="text-base font-semibold text-gray-700">รายละเอียด</Label>
-            <Textarea
-              id="description"
-              value={formData.description}
-              onChange={(e) => updateFormData('description', e.target.value)}
-              placeholder="รายละเอียดสินค้า"
-              rows={3}
-              className="text-base border-2 border-purple-200 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 relative z-30 cursor-text"
-              style={{ position: 'relative', zIndex: 30 }}
-            />
-          </div>
+            <div className="flex items-center space-x-2 mb-2">
+              <div className="p-1.5 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-lg">
+                <Tag className="h-3 w-3 text-white" />
+              </div>
+              <h3 className="text-base font-semibold text-slate-800">ข้อมูลพื้นฐาน</h3>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label htmlFor="name" className="text-xs font-semibold text-slate-700 flex items-center">
+                  <span className="text-red-500 mr-1">*</span>
+                  ชื่อสินค้า
+                </Label>
+                <Input
+                  id="name"
+                  value={formData.name}
+                  onChange={(e) => updateFormData('name', e.target.value)}
+                  placeholder="กรอกชื่อสินค้า"
+                  className="h-9 text-sm border-2 border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 bg-white hover:bg-slate-50 transition-all duration-200 shadow-sm hover:shadow-md rounded-lg"
+                />
+              </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="category" className="text-base font-semibold text-gray-700">หมวดหมู่ *</Label>
-              <Select value={formData.category_id} onValueChange={(value) => updateFormData('category_id', value)}>
-                <SelectTrigger className="h-12 text-base border-2 border-indigo-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 relative z-30 cursor-pointer">
-                  <SelectValue placeholder="เลือกหมวดหมู่" />
-                </SelectTrigger>
-                <SelectContent className="relative z-50">
-                  {categories.map((category) => (
-                    <SelectItem key={category.id} value={category.id} className="text-base">
-                      {category.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="space-y-1">
+                <Label htmlFor="sku" className="text-xs font-semibold text-slate-700 flex items-center">
+                  <span className="text-slate-400 mr-1">*</span>
+                  SKU
+                </Label>
+                <Input
+                  id="sku"
+                  value={formData.sku}
+                  onChange={(e) => updateFormData('sku', e.target.value)}
+                  placeholder="SKU-0001"
+                  className="h-9 text-sm border-2 border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 bg-white hover:bg-slate-50 transition-all duration-200 shadow-sm hover:shadow-md rounded-lg"
+                />
+              </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="supplier" className="text-base font-semibold text-gray-700">ผู้จำหน่าย *</Label>
-              <Select value={formData.supplier_id} onValueChange={(value) => updateFormData('supplier_id', value)}>
-                <SelectTrigger className="h-12 text-base border-2 border-emerald-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 relative z-30 cursor-pointer">
-                  <SelectValue placeholder="เลือกผู้จำหน่าย" />
-                </SelectTrigger>
-                <SelectContent className="relative z-50">
-                  {suppliers.map((supplier) => (
-                    <SelectItem key={supplier.id} value={supplier.id} className="text-base">
-                      {supplier.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            </div>
-
-            {/* Barcode */}
-            <div className="space-y-3">
-              <Label htmlFor="barcode" className="text-base font-semibold text-gray-700">บาร์โค้ด</Label>
-              <Input
-                id="barcode"
-                value={formData.barcode}
-                onChange={(e) => updateFormData('barcode', e.target.value)}
-                placeholder="สแกนหรือป้อนบาร์โค้ด"
-                className="h-12 text-base border-2 border-orange-200 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 relative z-30 cursor-text"
-                style={{ position: 'relative', zIndex: 30 }}
-              />
-              <p className="text-sm text-gray-600 bg-orange-50 p-3 rounded-lg border border-orange-200">
-                รองรับเครื่องอ่านบาร์โค้ด หรือป้อนด้วยตนเอง (ถ้าไม่ระบุ SKU จะใช้บาร์โค้ดเป็น SKU)
-              </p>
-            </div>
-
-          <div className="grid grid-cols-2 gap-6">
-            <div className="space-y-3">
-              <Label htmlFor="unit_price" className="text-base font-semibold text-gray-700">ราคาต่อหน่วย (บาท) *</Label>
-              <Input
-                id="unit_price"
-                type="number"
-                min="0"
-                step="0.01"
-                value={formData.unit_price}
-                onChange={(e) => updateFormData('unit_price', e.target.value)}
-                placeholder="0.00"
-                className="h-12 text-base border-2 border-pink-200 focus:border-pink-500 focus:ring-2 focus:ring-pink-200 relative z-30 cursor-text"
-                style={{ position: 'relative', zIndex: 30 }}
-              />
-            </div>
-
-            <div className="space-y-3">
-              <Label htmlFor="location" className="text-base font-semibold text-gray-700">ที่ตั้ง</Label>
-              <Input
-                id="location"
-                value={formData.location}
-                onChange={(e) => updateFormData('location', e.target.value)}
-                placeholder="A1-B2-C3"
-                className="h-12 text-base border-2 border-cyan-200 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200 relative z-30 cursor-text"
-                style={{ position: 'relative', zIndex: 30 }}
+            <div className="space-y-1">
+              <Label htmlFor="description" className="text-xs font-semibold text-slate-700">รายละเอียดสินค้า</Label>
+              <Textarea
+                id="description"
+                value={formData.description}
+                onChange={(e) => updateFormData('description', e.target.value)}
+                placeholder="กรอกรายละเอียดเพิ่มเติมเกี่ยวกับสินค้า"
+                className="min-h-[60px] text-sm border-2 border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 bg-white hover:bg-slate-50 transition-all duration-200 shadow-sm hover:shadow-md rounded-lg resize-none"
               />
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-6">
-            <div className="space-y-3">
-              <Label htmlFor="current_stock" className="text-base font-semibold text-gray-700">สต็อกปัจจุบัน</Label>
-              <Input
-                id="current_stock"
-                type="number"
-                min="0"
-                value={formData.current_stock}
-                onChange={(e) => updateFormData('current_stock', e.target.value)}
-                placeholder="0"
-                className="h-12 text-base border-2 border-blue-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 relative z-30 cursor-text"
-                style={{ position: 'relative', zIndex: 30 }}
-              />
+          {/* Category & Supplier Section */}
+          <div className="space-y-3">
+            <div className="flex items-center space-x-2 mb-2">
+              <div className="p-1.5 bg-gradient-to-r from-purple-500 to-pink-600 rounded-lg">
+                <Building2 className="h-3 w-3 text-white" />
+              </div>
+              <h3 className="text-base font-semibold text-slate-800">หมวดหมู่และผู้จำหน่าย</h3>
             </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold text-slate-700 flex items-center">
+                  <span className="text-red-500 mr-1">*</span>
+                  หมวดหมู่สินค้า
+                </Label>
+                <Select value={formData.category_id} onValueChange={(value) => updateFormData('category_id', value)}>
+                  <SelectTrigger className="h-9 text-sm border-2 border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 bg-white hover:bg-slate-50 transition-all duration-200 shadow-sm hover:shadow-md rounded-lg">
+                    <SelectValue placeholder="เลือกหมวดหมู่" />
+                  </SelectTrigger>
+                  <SelectContent className="relative z-50 rounded-lg border-2 border-slate-200 shadow-xl">
+                    {categories.map((category) => (
+                      <SelectItem key={category.id} value={category.id} className="text-sm py-2 hover:bg-emerald-50">
+                        {category.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-            <div className="space-y-3">
-              <Label htmlFor="min_stock" className="text-base font-semibold text-gray-700">สต็อกขั้นต่ำ</Label>
-              <Input
-                id="min_stock"
-                type="number"
-                min="0"
-                value={formData.min_stock}
-                onChange={(e) => updateFormData('min_stock', e.target.value)}
-                placeholder="0"
-                className="h-12 text-base border-2 border-yellow-200 focus:border-yellow-500 focus:ring-2 focus:ring-yellow-200 relative z-30 cursor-text"
-                style={{ position: 'relative', zIndex: 30 }}
-              />
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold text-slate-700 flex items-center">
+                  <span className="text-red-500 mr-1">*</span>
+                  ผู้จำหน่าย
+                </Label>
+                <Select value={formData.supplier_id} onValueChange={(value) => updateFormData('supplier_id', value)}>
+                  <SelectTrigger className="h-9 text-sm border-2 border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 bg-white hover:bg-slate-50 transition-all duration-200 shadow-sm hover:shadow-md rounded-lg">
+                    <SelectValue placeholder="เลือกผู้จำหน่าย" />
+                  </SelectTrigger>
+                  <SelectContent className="relative z-50 rounded-lg border-2 border-slate-200 shadow-xl">
+                    {suppliers.map((supplier) => (
+                      <SelectItem key={supplier.id} value={supplier.id} className="text-sm py-2 hover:bg-emerald-50">
+                        {supplier.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
+          </div>
 
-            <div className="space-y-3">
-              <Label htmlFor="max_stock" className="text-base font-semibold text-gray-700">สต็อกสูงสุด</Label>
-              <Input
-                id="max_stock"
-                type="number"
-                min="0"
-                value={formData.max_stock}
-                onChange={(e) => updateFormData('max_stock', e.target.value)}
-                placeholder="ไม่จำกัด"
-                className="h-12 text-base border-2 border-green-200 focus:border-green-500 focus:ring-2 focus:ring-green-200 relative z-30 cursor-text"
-                style={{ position: 'relative', zIndex: 30 }}
-              />
+          {/* Barcode & Location Section */}
+          <div className="space-y-3">
+            <div className="flex items-center space-x-2 mb-2">
+              <div className="p-1.5 bg-gradient-to-r from-orange-500 to-red-600 rounded-lg">
+                <MapPin className="h-3 w-3 text-white" />
+              </div>
+              <h3 className="text-base font-semibold text-slate-800">บาร์โค้ดและตำแหน่งจัดเก็บ</h3>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label htmlFor="barcode" className="text-xs font-semibold text-slate-700">บาร์โค้ดสินค้า</Label>
+                <Input
+                  id="barcode"
+                  value={formData.barcode}
+                  onChange={(e) => updateFormData('barcode', e.target.value)}
+                  placeholder="สแกนหรือป้อนบาร์โค้ด"
+                  className="h-9 text-sm border-2 border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 bg-white hover:bg-slate-50 transition-all duration-200 shadow-sm hover:shadow-md rounded-lg"
+                />
+                <p className="text-xs text-slate-500">กด Enter เพื่อสแกนบาร์โค้ดอัตโนมัติ</p>
+              </div>
+
+              <div className="space-y-1">
+                <Label htmlFor="location" className="text-xs font-semibold text-slate-700">ตำแหน่งจัดเก็บ</Label>
+                <Input
+                  id="location"
+                  value={formData.location}
+                  onChange={(e) => updateFormData('location', e.target.value)}
+                  placeholder="เช่น A-01-01, ชั้น 2"
+                  className="h-9 text-sm border-2 border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 bg-white hover:bg-slate-50 transition-all duration-200 shadow-sm hover:shadow-md rounded-lg"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Pricing Section */}
+          <div className="space-y-3">
+            <div className="flex items-center space-x-2 mb-2">
+              <div className="p-1.5 bg-gradient-to-r from-green-500 to-emerald-600 rounded-lg">
+                <DollarSign className="h-3 w-3 text-white" />
+              </div>
+              <h3 className="text-base font-semibold text-slate-800">ราคาและต้นทุน</h3>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label htmlFor="unit_price" className="text-xs font-semibold text-slate-700 flex items-center">
+                  <span className="text-red-500 mr-1">*</span>
+                  ราคาขาย (บาท)
+                </Label>
+                <div className="relative">
+                  <Input
+                    id="unit_price"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={formData.unit_price}
+                    onChange={(e) => updateFormData('unit_price', e.target.value)}
+                    placeholder="0.00"
+                    className="h-9 text-sm border-2 border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 bg-white hover:bg-slate-50 transition-all duration-200 shadow-sm hover:shadow-md rounded-lg pl-7"
+                  />
+                  <span className="absolute left-2 top-1/2 transform -translate-y-1/2 text-slate-500 text-xs">฿</span>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <Label htmlFor="cost_price" className="text-xs font-semibold text-slate-700">ราคาต้นทุน (บาท)</Label>
+                <div className="relative">
+                  <Input
+                    id="cost_price"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={formData.cost_price}
+                    onChange={(e) => updateFormData('cost_price', e.target.value)}
+                    placeholder="0.00"
+                    className="h-9 text-sm border-2 border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 bg-white hover:bg-slate-50 transition-all duration-200 shadow-sm hover:shadow-md rounded-lg pl-7"
+                  />
+                  <span className="absolute left-2 top-1/2 transform -translate-y-1/2 text-slate-500 text-xs">฿</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Stock Management Section */}
+          <div className="space-y-3">
+            <div className="flex items-center space-x-2 mb-2">
+              <div className="p-1.5 bg-gradient-to-r from-indigo-500 to-blue-600 rounded-lg">
+                <BarChart3 className="h-3 w-3 text-white" />
+              </div>
+              <h3 className="text-base font-semibold text-slate-800">การจัดการสต็อก</h3>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="space-y-1">
+                <Label htmlFor="current_stock" className="text-xs font-semibold text-slate-700">สต็อกปัจจุบัน</Label>
+                <Input
+                  id="current_stock"
+                  type="number"
+                  min="0"
+                  value={formData.current_stock}
+                  onChange={(e) => updateFormData('current_stock', e.target.value)}
+                  placeholder="0"
+                  className="h-9 text-sm border-2 border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 bg-white hover:bg-slate-50 transition-all duration-200 shadow-sm hover:shadow-md rounded-lg"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label htmlFor="min_stock" className="text-xs font-semibold text-slate-700">สต็อกขั้นต่ำ</Label>
+                <Input
+                  id="min_stock"
+                  type="number"
+                  min="0"
+                  value={formData.min_stock}
+                  onChange={(e) => updateFormData('min_stock', e.target.value)}
+                  placeholder="0"
+                  className="h-9 text-sm border-2 border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 bg-white hover:bg-slate-50 transition-all duration-200 shadow-sm hover:shadow-md rounded-lg"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label htmlFor="max_stock" className="text-xs font-semibold text-slate-700">สต็อกสูงสุด</Label>
+                <Input
+                  id="max_stock"
+                  type="number"
+                  min="0"
+                  value={formData.max_stock}
+                  onChange={(e) => updateFormData('max_stock', e.target.value)}
+                  placeholder="ไม่จำกัด"
+                  className="h-9 text-sm border-2 border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 bg-white hover:bg-slate-50 transition-all duration-200 shadow-sm hover:shadow-md rounded-lg"
+                />
+              </div>
             </div>
           </div>
 
           {/* Expiry Date for Medicine */}
           {selectedCategory?.is_medicine && (
             <div className="space-y-3">
-              <Label className="text-base font-semibold text-gray-700">วันหมดอายุ *</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "w-full justify-start text-left font-normal h-12 text-base border-2 border-red-200 hover:border-red-500 focus:ring-2 focus:ring-red-200",
-                      !expiryDate && "text-muted-foreground"
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-5 w-5" />
-                    {expiryDate ? format(expiryDate, "dd/MM/yyyy") : "เลือกวันหมดอายุ"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={expiryDate}
-                    onSelect={setExpiryDate}
-                    disabled={(date) => date < new Date()}
-                    initialFocus
-                    className={cn("p-3 pointer-events-auto")}
-                  />
-                </PopoverContent>
-              </Popover>
-              <p className="text-sm text-gray-600 bg-red-50 p-3 rounded-lg border border-red-200">
-                หมวดหมู่ยาต้องระบุวันหมดอายุ
-              </p>
+              <div className="flex items-center space-x-2 mb-2">
+                <div className="p-1.5 bg-gradient-to-r from-red-500 to-pink-600 rounded-lg">
+                  <AlertCircle className="h-3 w-3 text-white" />
+                </div>
+                <h3 className="text-base font-semibold text-slate-800">วันหมดอายุ</h3>
+              </div>
+              
+              <div className="space-y-2">
+                <Label className="text-xs font-semibold text-slate-700 flex items-center">
+                  <span className="text-red-500 mr-1">*</span>
+                  วันหมดอายุ
+                </Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="w-full h-9 justify-start text-left font-normal text-sm border-2 border-slate-200 hover:border-emerald-500 hover:bg-slate-50 bg-white transition-all duration-200 shadow-sm hover:shadow-md rounded-lg"
+                    >
+                      <CalendarIcon className="mr-2 h-3 w-3 text-slate-500" />
+                      {expiryDate ? format(expiryDate, "dd/MM/yyyy") : "เลือกวันหมดอายุ"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0 rounded-lg border-2 border-slate-200 shadow-xl" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={expiryDate}
+                      onSelect={setExpiryDate}
+                      disabled={(date) => date < new Date()}
+                      initialFocus
+                      className={cn("p-3 pointer-events-auto")}
+                    />
+                  </PopoverContent>
+                </Popover>
+                <div className="flex items-start space-x-2 p-2 bg-red-50 rounded-lg border border-red-200">
+                  <AlertCircle className="h-3 w-3 text-red-500 mt-0.5 flex-shrink-0" />
+                  <p className="text-xs text-red-700 font-medium">
+                    หมวดหมู่ยาต้องระบุวันหมดอายุเพื่อความปลอดภัย
+                  </p>
+                </div>
+              </div>
             </div>
           )}
 
-          <div className="flex justify-end space-x-4 pt-6">
+          {/* Action Buttons */}
+          <div className="relative z-10 flex justify-end space-x-3 pt-6 px-6 border-t border-pink-200/60 bg-gradient-to-r from-pink-50/95 to-white/95 backdrop-blur-sm">
             <Button 
               type="button" 
               variant="outline" 
@@ -548,22 +671,25 @@ export function AddProductDialog({ onProductAdded }: AddProductDialogProps) {
                 resetForm();
                 setOpen(false);
               }}
-              className="h-12 px-6 text-base border-2 border-gray-300 hover:border-gray-400 hover:bg-gray-50"
+              className="h-11 px-6 text-sm font-semibold border-2 border-slate-300 hover:border-slate-400 hover:bg-slate-50 bg-white transition-all duration-200 shadow-sm hover:shadow-md rounded-xl"
             >
               ยกเลิก
             </Button>
             <Button 
               type="submit" 
               disabled={isLoading}
-              className="h-12 px-6 text-base bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white shadow-lg"
+              className="h-11 px-8 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white text-sm font-bold shadow-xl hover:shadow-2xl transition-all duration-200 rounded-xl border-0"
             >
               {isLoading ? (
                 <>
-                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   กำลังบันทึก...
                 </>
               ) : (
-                'เพิ่มสินค้า'
+                <>
+                  <CheckCircle2 className="mr-2 h-4 w-4" />
+                  เพิ่มสินค้า
+                </>
               )}
             </Button>
           </div>

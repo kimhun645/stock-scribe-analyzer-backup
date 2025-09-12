@@ -66,7 +66,7 @@ export function SessionWarningDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={() => {}}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-[450px] w-[95vw] max-h-[85vh]">
         <DialogHeader>
           <div className="flex items-center space-x-2">
             <AlertTriangle className="h-6 w-6 text-amber-500" />

@@ -1,19 +1,26 @@
 
 import React, { useState, useEffect } from 'react';
-import { Layout } from '@/components/Layout/Layout';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { Plus, Search, Edit, Trash2, Phone, Mail, MapPin, User, CheckCircle, Building2 } from 'lucide-react';
-import { PageHeader } from '@/components/Layout/PageHeader';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Plus, Search, Edit, Trash2, Phone, Mail, MapPin, User, CheckCircle, Building2, BarChart3, TrendingUp, Package, Filter } from 'lucide-react';
 import { api, type Supplier } from '@/lib/apiService';
 import { AddSupplierDialog } from '@/components/Dialogs/AddSupplierDialog';
 import { EditSupplierDialog } from '@/components/Dialogs/EditSupplierDialog';
 import { useToast } from '@/hooks/use-toast';
 import { useBarcodeScanner } from '@/hooks/use-barcode-scanner';
-import { BarcodeScannerIndicator } from '@/components/ui/barcode-scanner-indicator';
+import {
+  ProductsStylePageLayout,
+  ProductsStylePageHeader,
+  ProductsStyleStatsCards,
+  ProductsStyleBulkActionsBar,
+  ProductsStyleDataTable,
+  ProductsStylePagination,
+  ProductsStyleDeleteConfirmationDialog,
+  type StatCard,
+  type ProductsStyleTableColumn
+} from '@/components/ui/shared-components';
 
 export default function Suppliers() {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
@@ -22,6 +29,19 @@ export default function Suppliers() {
   const [productCounts, setProductCounts] = useState<Record<string, number>>({});
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  
+  // Pagination and view state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(12);
+  const [viewMode, setViewMode] = useState<'table' | 'grid'>('grid');
+  const [sortField, setSortField] = useState('name');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  
+  // Bulk actions state
+  const [selectedSuppliers, setSelectedSuppliers] = useState<string[]>([]);
+  const [showFilterDialog, setShowFilterDialog] = useState(false);
+  const [statusFilter, setStatusFilter] = useState('all');
+  
   const { toast } = useToast();
 
   // Barcode scanner support
@@ -38,10 +58,87 @@ export default function Suppliers() {
     timeout: 100
   });
 
-  const filteredSuppliers = suppliers.filter(supplier =>
-    supplier.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    supplier.email.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Filter suppliers based on search and status filter
+  const filteredSuppliers = suppliers.filter(supplier => {
+    if (!supplier || !supplier.id || !supplier.name) return false; // Skip invalid suppliers
+    
+    const matchesSearch = supplier.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      supplier.email.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesStatus = statusFilter === 'all' || 
+      (statusFilter === 'active' && (productCounts[supplier.id] || 0) > 0) ||
+      (statusFilter === 'inactive' && (productCounts[supplier.id] || 0) === 0);
+    
+    return matchesSearch && matchesStatus;
+  });
+
+  // Sort suppliers
+  const sortedSuppliers = [...filteredSuppliers].sort((a, b) => {
+    if (!a || !b) return 0; // Skip invalid items
+    
+    let aValue = a[sortField as keyof Supplier];
+    let bValue = b[sortField as keyof Supplier];
+    
+    if (typeof aValue === 'string') aValue = aValue.toLowerCase();
+    if (typeof bValue === 'string') bValue = bValue.toLowerCase();
+    
+    if (sortDirection === 'asc') {
+      return aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
+    } else {
+      return aValue > bValue ? -1 : aValue < bValue ? 1 : 0;
+    }
+  });
+
+  // Pagination
+  const totalPages = Math.ceil(sortedSuppliers.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedSuppliers = sortedSuppliers.slice(startIndex, endIndex).filter(supplier => supplier && supplier.id);
+
+  // Bulk actions handlers
+  const handleSelectSupplier = (supplierId: string) => {
+    setSelectedSuppliers(prev => 
+      prev.includes(supplierId) 
+        ? prev.filter(id => id !== supplierId)
+        : [...prev, supplierId]
+    );
+  };
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedSuppliers(paginatedSuppliers.map(supplier => supplier.id));
+    } else {
+      setSelectedSuppliers([]);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    try {
+      for (const supplierId of selectedSuppliers) {
+        await api.deleteSupplier(supplierId);
+      }
+      
+      toast({
+        title: "สำเร็จ",
+        description: `ลบผู้จัดหา ${selectedSuppliers.length} รายการสำเร็จแล้ว`,
+      });
+      
+      setSelectedSuppliers([]);
+      fetchSuppliers();
+    } catch (error) {
+      toast({
+        title: "เกิดข้อผิดพลาด",
+        description: "ไม่สามารถลบผู้จัดหาได้",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Calculate stats
+  const totalSuppliers = suppliers.length;
+  const activeSuppliers = Object.values(productCounts).filter(count => count > 0).length;
+  const totalProducts = Object.values(productCounts).reduce((sum, count) => sum + count, 0);
+  const efficiency = totalSuppliers > 0 ? Math.round((activeSuppliers / totalSuppliers) * 100) : 0;
 
   const fetchSuppliers = async () => {
     try {
@@ -91,196 +188,240 @@ export default function Suppliers() {
     }
   };
 
+  // Define columns for data table
+  const columns: ProductsStyleTableColumn[] = [
+    {
+      key: 'name',
+      title: 'ชื่อผู้จัดหา',
+      sortable: true,
+      render: (supplier: Supplier) => (
+        <div className="flex items-center gap-2">
+          <span className="font-medium">{supplier?.name || 'Unknown'}</span>
+          {(productCounts[supplier?.id] || 0) > 0 && (
+            <CheckCircle className="h-4 w-4 text-green-600" title="มีสินค้า" />
+          )}
+        </div>
+      )
+    },
+    {
+      key: 'email',
+      title: 'อีเมล',
+      sortable: true,
+      render: (supplier: Supplier) => (
+        <span className="text-sm text-muted-foreground">
+          {supplier?.email || '-'}
+        </span>
+      )
+    },
+    {
+      key: 'phone',
+      title: 'เบอร์โทร',
+      sortable: true,
+      render: (supplier: Supplier) => (
+        <span className="text-sm text-muted-foreground">
+          {supplier?.phone || '-'}
+        </span>
+      )
+    },
+    {
+      key: 'product_count',
+      title: 'จำนวนสินค้า',
+      sortable: true,
+      render: (supplier: Supplier) => {
+        if (!supplier?.id) return <span className="text-sm text-muted-foreground">-</span>;
+        const count = productCounts[supplier.id] || 0;
+        return (
+          <Badge variant="secondary" className="bg-blue-500/10 text-blue-600">
+            {count.toLocaleString()} สินค้า
+          </Badge>
+        );
+      }
+    },
+    {
+      key: 'status',
+      title: 'สถานะ',
+      sortable: true,
+      render: (supplier: Supplier) => {
+        const count = productCounts[supplier?.id] || 0;
+        return count > 0 ? (
+          <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-200">
+            ใช้งาน
+          </Badge>
+        ) : (
+          <Badge variant="outline" className="bg-gray-500/10 text-gray-600 border-gray-200">
+            ไม่ใช้งาน
+          </Badge>
+        );
+      }
+    },
+    {
+      key: 'actions',
+      title: 'การดำเนินการ',
+      sortable: false,
+      render: (supplier: Supplier) => (
+        <div className="flex items-center gap-1">
+          {supplier?.id ? (
+            <>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => handleEditSupplier(supplier)}
+                className="h-8 w-8 p-0 hover:bg-blue-50"
+              >
+                <Edit className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => handleDeleteSupplier(supplier.id)}
+                className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-red-50"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </>
+          ) : (
+            <span className="text-sm text-muted-foreground">-</span>
+          )}
+        </div>
+      )
+    }
+  ];
+
+  // Define stats cards
+  const statsCards: StatCard[] = [
+    {
+      title: "ผู้จัดหาทั้งหมด",
+      value: totalSuppliers.toString(),
+      icon: <Building2 className="h-6 w-6" />,
+      color: "teal"
+    },
+    {
+      title: "ผู้จัดหาที่ใช้งาน",
+      value: activeSuppliers.toString(),
+      icon: <CheckCircle className="h-6 w-6" />,
+      color: activeSuppliers > 0 ? "green" : "red"
+    },
+    {
+      title: "สินค้ารวม",
+      value: totalProducts.toLocaleString(),
+      icon: <Package className="h-6 w-6" />,
+      color: "purple"
+    },
+    {
+      title: "ประสิทธิภาพ",
+      value: `${efficiency}%`,
+      icon: <TrendingUp className="h-6 w-6" />,
+      color: efficiency >= 80 ? "green" : efficiency >= 60 ? "orange" : "red"
+    }
+  ];
+
   useEffect(() => {
     fetchSuppliers();
   }, []);
 
   return (
-    <Layout hideHeader={true}>
-      <div className="w-full space-y-6 pb-8">
-        {/* Professional Page Header */}
-        <PageHeader 
-          title="ผู้จัดหา"
-          description="จัดการข้อมูลผู้จัดหาและซัพพลายเออร์อย่างครบถ้วน"
-          icon={User}
-          stats={[
-            {
-              label: "ผู้จัดหาทั้งหมด",
-              value: suppliers.length.toString(),
-              icon: User
-            },
-            {
-              label: "ผู้จัดหาที่ใช้งาน",
-              value: Object.values(productCounts).filter(count => count > 0).length.toString(),
-              icon: CheckCircle
-            }
-          ]}
-          secondaryActions={<AddSupplierDialog onSupplierAdded={fetchSuppliers} />}
+    <ProductsStylePageLayout>
+      {/* Page Header */}
+      <ProductsStylePageHeader
+        title="ผู้จัดหา"
+        searchPlaceholder="ค้นหาผู้จัดหา ชื่อหรืออีเมล..."
+        searchValue={searchTerm}
+        onSearchChange={setSearchTerm}
+        onRefresh={fetchSuppliers}
+        scannerDetected={scannerDetected}
+        actionButtons={<AddSupplierDialog onSupplierAdded={fetchSuppliers} />}
+      />
+
+      {/* Stats Cards */}
+      <ProductsStyleStatsCards cards={statsCards} />
+
+      {/* Bulk Actions Bar */}
+      {selectedSuppliers.length > 0 && (
+        <ProductsStyleBulkActionsBar
+          selectedCount={selectedSuppliers.length}
+          onClear={() => setSelectedSuppliers([])}
+          onDelete={handleBulkDelete}
         />
+      )}
 
-        {/* Search */}
-        <Card className="bg-gradient-to-br from-green-50 via-white to-blue-50 border-2 border-green-200 shadow-xl relative overflow-hidden">
-          {/* Background decoration */}
-          <div className="absolute inset-0 opacity-20">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-green-200 rounded-full -translate-y-32 translate-x-32 blur-3xl"></div>
-            <div className="absolute bottom-0 left-0 w-80 h-80 bg-blue-200 rounded-full translate-y-40 -translate-x-40 blur-3xl"></div>
-            <div className="absolute top-1/2 left-1/2 w-48 h-48 bg-emerald-200 rounded-full -translate-x-24 -translate-y-24 blur-2xl"></div>
-          </div>
-          
-          <CardContent className="p-6 sm:p-8 relative z-10">
-            <div className="space-y-6">
-              {/* Scanner Status */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <span className="text-lg sm:text-xl text-muted-foreground font-semibold">สถานะเครื่องสแกน:</span>
-                  <BarcodeScannerIndicator isDetected={scannerDetected} />
-                </div>
-                {scannerDetected && (
-                  <p className="text-base text-green-700 font-semibold bg-green-100 px-4 py-2 rounded-full border-2 border-green-300 shadow-sm">
-                    ✨ พร้อมใช้งาน - สแกนบาร์โค้ดเพื่อค้นหาผู้จัดหา
-                  </p>
-                )}
-              </div>
-              
-              <div className="relative">
-                <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-muted-foreground h-6 w-6" />
-                <Input
-                  placeholder="ค้นหาผู้จัดหา ชื่อหรืออีเมล..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-12 text-lg h-14 border-2 border-green-200 focus:border-green-500 focus:ring-4 focus:ring-green-200/50 bg-white/90 backdrop-blur-sm font-medium placeholder:text-muted-foreground/70"
-                />
+      {/* Data Table */}
+      <ProductsStyleDataTable
+        title="รายการผู้จัดหา"
+        description="จัดการข้อมูลผู้จัดหาและซัพพลายเออร์อย่างครบถ้วน"
+        data={paginatedSuppliers || []}
+        columns={columns}
+        currentViewMode={viewMode || 'grid'}
+        onViewModeChange={setViewMode}
+        onSort={(field) => {
+          if (sortField === field) {
+            setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+          } else {
+            setSortField(field);
+            setSortDirection('asc');
+          }
+        }}
+        onRefresh={fetchSuppliers}
+        onClearSelection={() => setSelectedSuppliers([])}
+        selectedItems={selectedSuppliers}
+        onSelectItem={handleSelectSupplier}
+        onSelectAll={handleSelectAll}
+        onEdit={handleEditSupplier}
+        onDelete={handleDeleteSupplier}
+        onFilter={() => setShowFilterDialog(true)}
+        sortField={sortField || 'name'}
+        sortDirection={sortDirection || 'asc'}
+        loading={isLoading || false}
+        emptyMessage="ไม่พบข้อมูลผู้จัดหาที่ตรงกับการค้นหา"
+        getItemId={(item) => item?.id || 'unknown'}
+        getItemName={(item) => item?.name || 'Unknown'}
+        currentPage={currentPage || 1}
+        totalPages={totalPages || 1}
+        filterDialog={
+          <DialogContent className="sm:max-w-md bg-gradient-to-br from-white to-purple-50/30 backdrop-blur-lg border-0 rounded-2xl shadow-2xl">
+            <DialogHeader>
+              <DialogTitle className="text-lg font-bold text-purple-800">ตัวกรองข้อมูล</DialogTitle>
+              <DialogDescription className="text-base">
+                กรองข้อมูลผู้จัดหาตามสถานะการใช้งาน
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700">สถานะการใช้งาน</label>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="เลือกสถานะ" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">ทั้งหมด</SelectItem>
+                    <SelectItem value="active">ใช้งาน</SelectItem>
+                    <SelectItem value="inactive">ไม่ใช้งาน</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
-          </CardContent>
-        </Card>
+          </DialogContent>
+        }
+      />
 
-        {/* Suppliers Grid */}
-        <div className="w-full min-h-0">
-          {isLoading ? (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-              {[...Array(6)].map((_, i) => (
-                <Card key={i} className="bg-gradient-to-br from-blue-50 via-white to-indigo-50 border-2 border-blue-200 shadow-xl relative overflow-hidden">
-                  <CardContent className="p-6 relative z-10">
-                    <div className="animate-pulse space-y-4">
-                      <div className="h-4 bg-blue-200 rounded"></div>
-                      <div className="h-3 bg-blue-200 rounded w-3/4"></div>
-                      <div className="h-3 bg-blue-200 rounded w-1/2"></div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          ) : filteredSuppliers.length > 0 ? (
-            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
-              {filteredSuppliers.map((supplier) => {
-                const productCount = productCounts[supplier.id] || 0;
-                const status = productCount > 0 ? 'active' : 'inactive';
-              
-                return (
-                  <Card key={supplier.id} className="bg-gradient-to-br from-blue-50 via-white to-indigo-50 border-2 border-blue-200 shadow-xl hover:shadow-2xl transition-all duration-300 h-fit relative overflow-hidden group">
-                    {/* Background decoration */}
-                    <div className="absolute inset-0 opacity-10 group-hover:opacity-20 transition-opacity duration-300">
-                      <div className="absolute top-0 right-0 w-32 h-32 bg-blue-200 rounded-full -translate-y-16 translate-x-16 blur-2xl"></div>
-                      <div className="absolute bottom-0 left-0 w-40 h-40 bg-indigo-200 rounded-full translate-y-20 -translate-x-20 blur-2xl"></div>
-                    </div>
-                    
-                    <CardHeader className="pb-3 relative z-10">
-                      <div className="flex items-start justify-between gap-2 mb-3">
-                        <div className="flex items-center space-x-2 flex-shrink-0">
-                          <Badge variant={status === 'active' ? 'default' : 'secondary'} 
-                                 className={`text-xs font-bold px-3 py-1 ${status === 'active' ? 'bg-green-500/10 text-green-600' : 'bg-gray-500/10 text-gray-600'}`}>
-                            {status === 'active' ? 'ใช้งาน' : 'ไม่ใช้งาน'}
-                          </Badge>
-                          <div className="flex space-x-1">
-                            <Button 
-                              variant="ghost" 
-                              size="sm"
-                              onClick={() => handleEditSupplier(supplier)}
-                              className="h-8 w-8 p-0 hover:bg-blue-50"
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive h-8 w-8 p-0 hover:bg-red-50">
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent className="bg-gradient-to-br from-white to-blue-50 shadow-2xl border-2 border-blue-200">
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle className="text-lg font-bold text-blue-800">ยืนยันการลบ</AlertDialogTitle>
-                                  <AlertDialogDescription className="text-base">
-                                    คุณแน่ใจหรือไม่ที่จะลบผู้จัดหา "{supplier.name}"? การกระทำนี้ไม่สามารถยกเลิกได้
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel className="border-2 border-blue-200 hover:bg-blue-50">ยกเลิก</AlertDialogCancel>
-                                  <AlertDialogAction
-                                    onClick={() => handleDeleteSupplier(supplier.id)}
-                                    className="bg-red-500 hover:bg-red-600 text-white font-bold"
-                                  >
-                                    ลบ
-                                  </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      {/* Company Name - Moved to separate line */}
-                      <CardTitle className="text-lg sm:text-xl font-bold text-blue-800 break-words leading-tight">
-                        {supplier.name}
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4 relative z-10">
-                      <div className="space-y-3">
-                        <div className="flex items-center text-sm text-muted-foreground">
-                          <Mail className="mr-3 h-4 w-4 flex-shrink-0 text-blue-500" />
-                          <span className="break-all flex-1">{supplier.email}</span>
-                        </div>
-                        <div className="flex items-center text-sm text-muted-foreground">
-                          <Phone className="mr-3 h-4 w-4 flex-shrink-0 text-green-500" />
-                          <span className="break-all flex-1">{supplier.phone}</span>
-                        </div>
-                        {supplier.address && (
-                          <div className="flex items-start text-sm text-muted-foreground">
-                            <MapPin className="mr-3 h-4 w-4 flex-shrink-0 mt-0.5 text-orange-500" />
-                            <span className="break-words flex-1">{supplier.address}</span>
-                          </div>
-                        )}
-                      </div>
-                      
-                      <div className="flex items-center justify-between pt-3 border-t border-blue-100">
-                        <Badge variant="secondary" className="bg-blue-500/10 text-blue-600 text-xs font-bold px-3 py-1">
-                          {productCount.toLocaleString()} สินค้า
-                        </Badge>
-                        <span className="text-xs text-muted-foreground truncate">
-                          ID: {supplier.id.slice(0, 8)}...
-                        </span>
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-          ) : (
-            <Card className="bg-gradient-to-br from-blue-50 via-white to-indigo-50 border-2 border-blue-200 shadow-xl relative overflow-hidden">
-              {/* Background decoration */}
-              <div className="absolute inset-0 opacity-20">
-                <div className="absolute top-0 right-0 w-64 h-64 bg-blue-200 rounded-full -translate-y-32 translate-x-32 blur-3xl"></div>
-                <div className="absolute bottom-0 left-0 w-80 h-80 bg-indigo-200 rounded-full translate-y-40 -translate-x-40 blur-3xl"></div>
-              </div>
-              
-              <CardContent className="p-12 text-center relative z-10">
-                <Building2 className="h-16 w-16 text-blue-300 mx-auto mb-4" />
-                <p className="text-lg font-medium text-blue-800">ไม่พบผู้จัดหาที่ตรงกับการค้นหา</p>
-              </CardContent>
-            </Card>
-          )}
-        </div>
-      </div>
+      {/* Pagination */}
+      <ProductsStylePagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        totalItems={sortedSuppliers.length}
+        itemsPerPage={itemsPerPage}
+        onPageChange={setCurrentPage}
+        onItemsPerPageChange={setItemsPerPage}
+        itemsPerPageOptions={[6, 12, 24, 48]}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <ProductsStyleDeleteConfirmationDialog
+        open={false}
+        onOpenChange={() => {}}
+        onConfirm={() => {}}
+        title="ยืนยันการลบ"
+        itemName="ผู้จัดหา"
+      />
 
       {/* Edit Supplier Dialog */}
       <EditSupplierDialog
@@ -289,6 +430,6 @@ export default function Suppliers() {
         onOpenChange={setEditDialogOpen}
         onSupplierUpdated={fetchSuppliers}
       />
-    </Layout>
+    </ProductsStylePageLayout>
   );
 }

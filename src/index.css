@@ -609,3 +609,38 @@ html {
 .animate-input-focus {
   animation: input-focus 0.3s ease-out;
 }
+
+/* Hide scrollbars for modals */
+[data-radix-dialog-content] {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* Internet Explorer 10+ */
+  overflow: hidden; /* Hide all scrollbars */
+}
+
+[data-radix-dialog-content]::-webkit-scrollbar {
+  display: none; /* WebKit */
+}
+
+/* Hide scrollbars for modal content */
+[data-radix-dialog-content] * {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* Internet Explorer 10+ */
+}
+
+[data-radix-dialog-content] *::-webkit-scrollbar {
+  display: none; /* WebKit */
+}
+
+/* Force no scrollbars anywhere in modals */
+[data-radix-dialog-content],
+[data-radix-dialog-content] *,
+[data-radix-dialog-content] form,
+[data-radix-dialog-content] div {
+  overflow: hidden !important;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+[data-radix-dialog-content] *::-webkit-scrollbar {
+  display: none !important;
+}

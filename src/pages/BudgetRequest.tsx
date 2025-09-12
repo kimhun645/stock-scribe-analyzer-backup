@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Layout } from '@/components/Layout/Layout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -9,12 +8,22 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { Plus, Eye, Trash2, MoreHorizontal, Printer, Calendar, User, CreditCard, FileText, Clock, CheckCircle, Search, Filter, X } from 'lucide-react';
-import { PageHeader } from '@/components/Layout/PageHeader';
+import { Plus, Eye, Trash2, MoreHorizontal, Printer, Calendar, User, CreditCard, FileText, Clock, CheckCircle, Search, Filter, X, RefreshCw, TrendingUp, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { api, type BudgetRequest as DBBudgetRequest } from '@/lib/apiService';
 import { useBarcodeScanner } from '@/hooks/use-barcode-scanner';
 import { BarcodeScannerIndicator } from '@/components/ui/barcode-scanner-indicator';
+import {
+  ProductsStylePageLayout,
+  ProductsStylePageHeader,
+  ProductsStyleStatsCards,
+  ProductsStyleBulkActionsBar,
+  ProductsStyleDataTable,
+  ProductsStylePagination,
+  ProductsStyleDeleteConfirmationDialog,
+  type StatCard,
+  type ProductsStyleTableColumn
+} from '@/components/ui/shared-components';
 
 import { AddBudgetRequestDialog } from '@/components/Dialogs/AddBudgetRequestDialog';
 
@@ -43,6 +52,16 @@ export default function BudgetRequest() {
   const [dateFrom, setDateFrom] = useState<string>('');
   const [dateTo, setDateTo] = useState<string>('');
   const [showFilters, setShowFilters] = useState(false);
+  
+  // Pagination and view state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(12);
+  const [viewMode, setViewMode] = useState<'table' | 'grid'>('grid');
+  const [sortField, setSortField] = useState('created_at');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  
+  // Bulk actions state
+  const [selectedRequests, setSelectedRequests] = useState<string[]>([]);
 
   // Barcode scanner support
   const { scannerDetected, lastScannedCode } = useBarcodeScanner({
@@ -57,6 +76,45 @@ export default function BudgetRequest() {
     minLength: 3,
     timeout: 100
   });
+  // Bulk actions handlers
+  const handleSelectRequest = (requestId: string | number) => {
+    const id = String(requestId);
+    setSelectedRequests(prev => 
+      prev.includes(id) 
+        ? prev.filter(itemId => itemId !== id)
+        : [...prev, id]
+    );
+  };
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedRequests(paginatedRequests.map(request => String(request.id)));
+    } else {
+      setSelectedRequests([]);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    try {
+      for (const requestId of selectedRequests) {
+        await api.deleteBudgetRequest(requestId);
+      }
+      
+      toast({
+        title: "สำเร็จ",
+        description: `ลบคำขอ ${selectedRequests.length} รายการสำเร็จแล้ว`,
+      });
+      
+      setSelectedRequests([]);
+      fetchRequests();
+    } catch (error) {
+      toast({
+        title: "เกิดข้อผิดพลาด",
+        description: "ไม่สามารถลบคำขอได้",
+        variant: "destructive",
+      });
+    }
+  };
 
   useEffect(() => {
     fetchRequests();
@@ -83,9 +141,17 @@ export default function BudgetRequest() {
     const fetchApprovalData = async () => {
       if (selectedRequest && selectedRequest.status !== 'PENDING') {
         try {
-          const approval = await api.getApprovalByRequestId(selectedRequest.id);
-          if (approval) setApprovalData(approval);
-          else setApprovalData(null);
+          const approval = await api.getApprovalByRequestId(String(selectedRequest.id));
+          if (approval) {
+            const approvalInfo: ApprovalInfo = {
+              approver_name: approval.approver_name || 'ไม่ระบุ',
+              created_at: approval.created_at || new Date().toISOString(),
+              remark: approval.remark
+            };
+            setApprovalData(approvalInfo);
+          } else {
+            setApprovalData(null);
+          }
         } catch (err) {
           console.error('Error fetching approval data:', err);
           setApprovalData(null);
@@ -124,7 +190,7 @@ export default function BudgetRequest() {
   const handleDelete = async () => {
     if (!requestToDelete) return;
     try {
-      await api.deleteBudgetRequest(requestToDelete.id);
+      await api.deleteBudgetRequest(String(requestToDelete.id));
       toast({ title: 'ลบสำเร็จ', description: `ลบคำขอ ${requestToDelete.request_no} เรียบร้อยแล้ว` });
       setDeleteDialogOpen(false);
       setRequestToDelete(null);
@@ -140,7 +206,7 @@ export default function BudgetRequest() {
   const handleEdit = async (editedRequest: DBBudgetRequest) => {
     if (!selectedRequest) return;
     try {
-      await api.updateBudgetRequest(selectedRequest.id, editedRequest);
+      await api.updateBudgetRequest(String(selectedRequest.id), editedRequest);
       toast({ title: 'แก้ไขสำเร็จ', description: `แก้ไขคำขอ ${selectedRequest.request_no} เรียบร้อยแล้ว` });
       setEditDialogOpen(false);
       setSelectedRequest(null);
@@ -156,8 +222,14 @@ export default function BudgetRequest() {
     let approvalInfo: ApprovalInfo | null = null;
     if (request.status !== 'PENDING') {
       try {
-        const data = await api.getApprovalByRequestId(request.id);
-        approvalInfo = data;
+        const data = await api.getApprovalByRequestId(String(request.id));
+        if (data) {
+          approvalInfo = {
+            approver_name: data.approver_name || 'ไม่ระบุ',
+            created_at: data.created_at || new Date().toISOString(),
+            remark: data.remark
+          };
+        }
       } catch (err) {
         console.error('Error fetching approval data for print:', err);
       }
@@ -392,6 +464,29 @@ export default function BudgetRequest() {
     });
   }, [requests, searchTerm, statusFilter, dateFrom, dateTo]);
 
+  // Sort requests
+  const sortedRequests = [...filteredRequests].sort((a, b) => {
+    if (!a || !b) return 0; // Skip invalid items
+    
+    let aValue = a[sortField as keyof DBBudgetRequest];
+    let bValue = b[sortField as keyof DBBudgetRequest];
+    
+    if (typeof aValue === 'string') aValue = aValue.toLowerCase();
+    if (typeof bValue === 'string') bValue = bValue.toLowerCase();
+    
+    if (sortDirection === 'asc') {
+      return aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
+    } else {
+      return aValue > bValue ? -1 : aValue < bValue ? 1 : 0;
+    }
+  });
+
+  // Pagination
+  const totalPages = Math.ceil(sortedRequests.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedRequests = sortedRequests.slice(startIndex, endIndex).filter(request => request && request.id);
+
   // Clear all filters
   const clearFilters = () => {
     setSearchTerm('');
@@ -430,577 +525,455 @@ export default function BudgetRequest() {
     };
   }, [filteredRequests, hasActiveFilters]);
 
+  // Calculate stats
+  const totalRequests = requests.length;
+  const pendingRequests = requests.filter(r => r.status === 'PENDING').length;
+  const approvedRequests = requests.filter(r => r.status === 'APPROVED').length;
+  const rejectedRequests = requests.filter(r => r.status === 'REJECTED').length;
+  const totalAmount = requests.reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
+  const pendingAmount = requests.filter(r => r.status === 'PENDING').reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
+
+  // Define columns for data table
+  const columns: ProductsStyleTableColumn[] = [
+    {
+      key: 'request_no',
+      title: 'หมายเลขคำขอ',
+      sortable: true,
+      render: (request: DBBudgetRequest) => (
+        <div className="flex items-center gap-2">
+          <span className="font-medium">{request?.request_no || 'Unknown'}</span>
+          {request?.status === 'PENDING' && (
+            <Clock className="h-4 w-4 text-orange-600" />
+          )}
+        </div>
+      )
+    },
+    {
+      key: 'requester_name',
+      title: 'ผู้ขอ',
+      sortable: true,
+      render: (request: DBBudgetRequest) => (
+        <span className="text-sm text-muted-foreground">
+          {(request as any)?.requester_name || '-'}
+        </span>
+      )
+    },
+    {
+      key: 'description',
+      title: 'รายละเอียด',
+      sortable: true,
+      render: (request: DBBudgetRequest) => (
+        <span className="text-sm text-muted-foreground">
+          {(request as any)?.description || '-'}
+        </span>
+      )
+    },
+    {
+      key: 'amount',
+      title: 'จำนวนเงิน',
+      sortable: true,
+      render: (request: DBBudgetRequest) => (
+        <span className="text-sm font-semibold text-green-600">
+          ฿{(Number(request?.amount) || 0).toLocaleString()}
+        </span>
+      )
+    },
+    {
+      key: 'status',
+      title: 'สถานะ',
+      sortable: true,
+      render: (request: DBBudgetRequest) => {
+        const status = request?.status;
+        return status === 'APPROVED' ? (
+          <Badge variant="outline" className="bg-green-100 text-green-700 border-green-200">
+            อนุมัติแล้ว
+          </Badge>
+        ) : status === 'REJECTED' ? (
+          <Badge variant="outline" className="bg-red-100 text-red-700 border-red-200">
+            ไม่อนุมัติ
+          </Badge>
+        ) : (
+          <Badge variant="outline" className="bg-orange-100 text-orange-700 border-orange-200">
+            รอการอนุมัติ
+          </Badge>
+        );
+      }
+    },
+    {
+      key: 'created_at',
+      title: 'วันที่สร้าง',
+      sortable: true,
+      render: (request: DBBudgetRequest) => (
+        <span className="text-sm text-muted-foreground">
+          {request?.created_at ? new Date(request.created_at).toLocaleDateString('th-TH') : '-'}
+        </span>
+      )
+    },
+    {
+      key: 'actions',
+      title: 'การดำเนินการ',
+      sortable: false,
+      render: (request: DBBudgetRequest) => (
+        <div className="flex items-center gap-1">
+          {request?.id ? (
+            <>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => {
+                  setSelectedRequest(request);
+                  setDetailDialogOpen(true);
+                }}
+                className="h-8 w-8 p-0 hover:bg-blue-50"
+              >
+                <Eye className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setRequestToDelete(request);
+                  setDeleteDialogOpen(true);
+                }}
+                className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-red-50"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </>
+          ) : (
+            <span className="text-sm text-muted-foreground">-</span>
+          )}
+        </div>
+      )
+    }
+  ];
+
+  // Define stats cards
+  const statsCards: StatCard[] = [
+    {
+      title: "คำขอทั้งหมด",
+      value: totalRequests.toString(),
+      icon: <FileText className="h-6 w-6" />,
+      color: "teal"
+    },
+    {
+      title: "รอการอนุมัติ",
+      value: pendingRequests.toString(),
+      icon: <Clock className="h-6 w-6" />,
+      color: pendingRequests > 0 ? "orange" : "green"
+    },
+    {
+      title: "อนุมัติแล้ว",
+      value: approvedRequests.toString(),
+      icon: <CheckCircle className="h-6 w-6" />,
+      color: approvedRequests > 0 ? "green" : "red"
+    },
+    {
+      title: "มูลค่ารวม",
+      value: `฿${totalAmount.toLocaleString()}`,
+      icon: <CreditCard className="h-6 w-6" />,
+      color: "purple"
+    }
+  ];
+
   if (loading) {
     return (
-      <Layout hideHeader={true}>
+      <ProductsStylePageLayout>
         <div className="flex items-center justify-center min-h-[400px]">
           <div className="text-center">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
             <p>กำลังโหลดข้อมูล...</p>
           </div>
         </div>
-      </Layout>
+      </ProductsStylePageLayout>
     );
   }
 
   return (
-    <Layout hideHeader={true}>
-      <div className="w-full space-y-8 pb-8">
-        {/* Professional Page Header */}
-        <PageHeader 
-          title="คำขออนุมัติใช้งบประมาณ"
-          description="จัดการคำขออนุมัติและติดตามสถานะการอนุมัติ"
-          icon={FileText}
-          stats={[
-            {
-              label: "คำขอทั้งหมด",
-              value: Array.isArray(requests) ? requests.length.toString() : "0",
-              icon: FileText
-            },
-            {
-              label: "รอการอนุมัติ",
-              value: Array.isArray(requests) ? requests.filter(r => r.status === 'PENDING').length.toString() : "0",
-              icon: Clock
-            },
-            {
-              label: "อนุมัติแล้ว",
-              value: Array.isArray(requests) ? requests.filter(r => r.status === 'APPROVED').length.toString() : "0",
-              icon: CheckCircle
-            },
-            {
-              label: "ไม่อนุมัติ",
-              value: Array.isArray(requests) ? requests.filter(r => r.status === 'REJECTED').length.toString() : "0",
-              icon: X
-            },
-            {
-              label: "มูลค่ารวมทั้งหมด",
-              value: `฿${Array.isArray(requests) ? parseFloat(requests
-                .reduce((sum, r) => sum + (Number(r.amount) || 0), 0)
-                .toFixed(2)).toLocaleString() : "0"}`,
-              icon: CreditCard
-            },
-            {
-              label: "มูลค่ารวม (รออนุมัติ)",
-              value: `฿${Array.isArray(requests) ? parseFloat(requests
-                .filter(r => r.status === 'PENDING')
-                .reduce((sum, r) => sum + (Number(r.amount) || 0), 0)
-                .toFixed(2)).toLocaleString() : "0"}`,
-              icon: Clock
-            },
-            {
-              label: "มูลค่ารวม (อนุมัติแล้ว)",
-              value: `฿${Array.isArray(requests) ? parseFloat(requests
-                .filter(r => r.status === 'APPROVED')
-                .reduce((sum, r) => sum + (Number(r.amount) || 0), 0)
-                .toFixed(2)).toLocaleString() : "0"}`,
-              icon: CheckCircle
-            }
-          ]}
-          primaryAction={{
-            label: "เพิ่มคำขอใหม่",
-            icon: Plus,
-            onClick: () => {
-              // Close all other dialogs first
-              setEditDialogOpen(false);
-              setDetailDialogOpen(false);
-              setDeleteDialogOpen(false);
-              setSelectedRequest(null);
-              // Then open add dialog
-              setAddDialogOpen(true);
-            }
-          }}
-        />
-
-        {/* Search and Filter Section */}
-        <Card className="bg-gradient-to-br from-green-50 via-white to-blue-50 border-2 border-green-200 shadow-xl relative overflow-hidden">
-          {/* Background decoration */}
-          <div className="absolute inset-0 opacity-20">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-green-200 rounded-full -translate-y-32 translate-x-32 blur-3xl"></div>
-            <div className="absolute bottom-0 left-0 w-80 h-80 bg-blue-200 rounded-full translate-y-40 -translate-x-40 blur-3xl"></div>
-            <div className="absolute top-1/2 left-1/2 w-48 h-48 bg-emerald-200 rounded-full -translate-x-24 -translate-y-24 blur-2xl"></div>
+    <ProductsStylePageLayout>
+      {/* Page Header */}
+      <ProductsStylePageHeader
+        title="คำขออนุมัติใช้งบประมาณ"
+        searchPlaceholder="ค้นหาคำขอใช้งบประมาณ..."
+        searchValue={searchTerm}
+        onSearchChange={setSearchTerm}
+        onRefresh={fetchRequests}
+        scannerDetected={scannerDetected}
+        actionButtons={
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setEditDialogOpen(false);
+                setDetailDialogOpen(false);
+                setDeleteDialogOpen(false);
+                setSelectedRequest(null);
+                setAddDialogOpen(true);
+              }}
+              className="h-9 px-3 rounded-lg bg-white/10 backdrop-blur-sm border-white/20 hover:bg-white/20 text-white hover:text-white transition-all duration-200"
+            >
+              <FileText className="h-4 w-4 mr-2" />
+              คำขอใช้งบประมาณ
+            </Button>
           </div>
-          
-          <CardContent className="p-6 sm:p-8 relative z-10">
+        }
+      />
+
+      {/* Stats Cards */}
+      <ProductsStyleStatsCards cards={statsCards} />
+
+      {/* Bulk Actions Bar */}
+      {selectedRequests.length > 0 && (
+        <ProductsStyleBulkActionsBar
+          selectedCount={selectedRequests.length}
+          onClear={() => setSelectedRequests([])}
+          onDelete={handleBulkDelete}
+        />
+      )}
+
+      {/* Filter Controls */}
+      <Card className="mb-4">
+        <CardContent className="p-4">
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex items-center gap-2">
+              <Label htmlFor="status-filter">สถานะ:</Label>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-40">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">ทั้งหมด</SelectItem>
+                  <SelectItem value="PENDING">รอการอนุมัติ</SelectItem>
+                  <SelectItem value="APPROVED">อนุมัติแล้ว</SelectItem>
+                  <SelectItem value="REJECTED">ไม่อนุมัติ</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <Label htmlFor="date-from">วันที่เริ่มต้น:</Label>
+              <Input
+                id="date-from"
+                type="date"
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value)}
+                className="w-40"
+              />
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <Label htmlFor="date-to">วันที่สิ้นสุด:</Label>
+              <Input
+                id="date-to"
+                type="date"
+                value={dateTo}
+                onChange={(e) => setDateTo(e.target.value)}
+                className="w-40"
+              />
+            </div>
+            
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={clearFilters}
+              disabled={!hasActiveFilters}
+            >
+              <X className="h-4 w-4 mr-2" />
+              ล้างตัวกรอง
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Data Table */}
+      <ProductsStyleDataTable
+        title="คำขออนุมัติใช้งบประมาณ"
+        description="รายการคำขออนุมัติใช้งบประมาณทั้งหมด"
+        data={paginatedRequests}
+        columns={columns}
+        currentViewMode={viewMode}
+        onViewModeChange={setViewMode}
+        onSort={(field) => {
+          setSortField(field);
+          setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+        }}
+        onRefresh={fetchRequests}
+        onClearSelection={() => setSelectedRequests([])}
+        selectedItems={selectedRequests}
+        onSelectItem={handleSelectRequest}
+        onSelectAll={handleSelectAll}
+        onDelete={(id) => {
+          const request = paginatedRequests.find(r => String(r.id) === String(id));
+          if (request) {
+            setRequestToDelete(request);
+            setDeleteDialogOpen(true);
+          }
+        }}
+        sortField={sortField}
+        sortDirection={sortDirection}
+        loading={loading}
+        emptyMessage="ไม่พบคำขออนุมัติใช้งบประมาณ"
+        onFilter={() => {}} // Empty function for now
+        getItemId={(request) => request?.id || ''}
+        getItemName={(request) => request?.request_no || 'Unknown'}
+      />
+
+      {/* Pagination */}
+      <ProductsStylePagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        itemsPerPage={itemsPerPage}
+        totalItems={sortedRequests.length}
+        onPageChange={setCurrentPage}
+        onItemsPerPageChange={setItemsPerPage}
+        itemsPerPageOptions={[6, 12, 24, 48]}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <ProductsStyleDeleteConfirmationDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        onConfirm={handleDelete}
+        title="ยืนยันการลบคำขอ"
+        itemName={requestToDelete?.request_no || ''}
+      />
+
+      {/* Add Request Dialog */}
+      <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>เพิ่มคำขออนุมัติใช้งบประมาณ</DialogTitle>
+            <DialogDescription>
+              กรอกข้อมูลคำขออนุมัติใช้งบประมาณใหม่
+            </DialogDescription>
+          </DialogHeader>
+          <AddBudgetRequestDialog
+            onSuccess={() => {
+              setAddDialogOpen(false);
+              fetchRequests();
+            }}
+          />
+        </DialogContent>
+      </Dialog>
+
+      {/* Detail Dialog */}
+      <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>รายละเอียดคำขออนุมัติใช้งบประมาณ</DialogTitle>
+            <DialogDescription>
+              ข้อมูลคำขอ {selectedRequest?.request_no}
+            </DialogDescription>
+          </DialogHeader>
+          {selectedRequest && (
             <div className="space-y-6">
-              {/* Scanner Status */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <span className="text-lg sm:text-xl text-muted-foreground font-semibold">สถานะเครื่องสแกน:</span>
-                  <BarcodeScannerIndicator isDetected={scannerDetected} />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <Label className="text-sm font-medium text-gray-600">หมายเลขคำขอ</Label>
+                  <p className="text-lg font-semibold">{selectedRequest.request_no}</p>
                 </div>
-                {scannerDetected && (
-                  <p className="text-base text-green-700 font-semibold bg-green-100 px-4 py-2 rounded-full border-2 border-green-300 shadow-sm">
-                    ✨ พร้อมใช้งาน - สแกนบาร์โค้ดเพื่อค้นหาคำขอ
+                <div>
+                  <Label className="text-sm font-medium text-gray-600">ผู้ขอ</Label>
+                  <p className="text-lg font-semibold">{(selectedRequest as any)?.requester_name || '-'}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-gray-600">จำนวนเงิน</Label>
+                  <p className="text-lg font-semibold text-green-600">
+                    ฿{parseFloat(Number(selectedRequest.amount).toFixed(2)).toLocaleString()}
                   </p>
-                )}
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-gray-600">สถานะ</Label>
+                  <div className="mt-1">
+                    {selectedRequest.status === 'APPROVED' ? (
+                      <Badge variant="outline" className="bg-green-100 text-green-700 border-green-200">
+                        อนุมัติแล้ว
+                      </Badge>
+                    ) : selectedRequest.status === 'REJECTED' ? (
+                      <Badge variant="outline" className="bg-red-100 text-red-700 border-red-200">
+                        ไม่อนุมัติ
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="bg-orange-100 text-orange-700 border-orange-200">
+                        รอการอนุมัติ
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-gray-600">วันที่สร้าง</Label>
+                  <p className="text-lg font-semibold">
+                    {new Date(selectedRequest.created_at).toLocaleDateString('th-TH')}
+                  </p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-gray-600">วันที่อัพเดท</Label>
+                  <p className="text-lg font-semibold">
+                    {new Date(selectedRequest.updated_at).toLocaleDateString('th-TH')}
+                  </p>
+                </div>
               </div>
               
-              {/* Search Bar */}
-              <div className="flex gap-4">
-                <div className="relative flex-1">
-                  <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-6 w-6 text-muted-foreground" />
-                  <Input
-                    placeholder="ค้นหาจากเลขที่คำขอ, ผู้ขอ, รหัสบัญชี, หรือหมายเหตุ..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-12 text-lg h-14 border-2 border-green-200 focus:border-green-500 focus:ring-4 focus:ring-green-200/50 bg-white/90 backdrop-blur-sm font-medium placeholder:text-muted-foreground/70"
-                  />
-                  {searchTerm && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="absolute right-2 top-1/2 transform -translate-y-1/2 h-8 w-8 p-0 hover:bg-red-50"
-                      onClick={() => setSearchTerm('')}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  )}
-                </div>
-                <Button
-                  variant={showFilters ? "default" : "outline"}
-                  onClick={() => setShowFilters(!showFilters)}
-                  className="gap-2 h-14 px-6 text-base font-medium border-2 border-blue-200 hover:border-blue-500 focus:ring-4 focus:ring-blue-200/50"
-                >
-                  <Filter className="h-5 w-5" />
-                  ตัวกรอง
-                </Button>
-                {hasActiveFilters && (
-                  <Button
-                    variant="outline"
-                    onClick={clearFilters}
-                    className="gap-2 h-14 px-6 text-base font-medium border-2 border-orange-200 hover:border-orange-500 focus:ring-4 focus:ring-orange-200/50"
-                  >
-                    <X className="h-4 w-4" />
-                    ล้างตัวกรอง
-                  </Button>
-                )}
+              <div>
+                <Label className="text-sm font-medium text-gray-600">รายละเอียด</Label>
+                <p className="text-lg font-semibold mt-1">{(selectedRequest as any)?.description || '-'}</p>
               </div>
 
-              {/* Filtered Statistics */}
-              {filteredStats && (
-                <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4">
-                  <h4 className="text-sm font-semibold text-blue-800 mb-3 flex items-center gap-2">
-                    <Filter className="h-4 w-4" />
-                    สถิติข้อมูลที่กรองแล้ว
-                  </h4>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                    <div className="text-center">
-                      <div className="text-lg font-bold text-blue-600">{filteredStats.total}</div>
-                      <div className="text-blue-700">รายการทั้งหมด</div>
+              {approvalData && (
+                <div className="border-t pt-6">
+                  <h4 className="text-lg font-semibold mb-4">ข้อมูลการอนุมัติ</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <Label className="text-sm font-medium text-gray-600">ผู้อนุมัติ</Label>
+                      <p className="text-lg font-semibold">{approvalData.approver_name}</p>
                     </div>
-                    <div className="text-center">
-                      <div className="text-lg font-bold text-yellow-600">{filteredStats.pending}</div>
-                      <div className="text-yellow-700">รออนุมัติ</div>
+                    <div>
+                      <Label className="text-sm font-medium text-gray-600">วันที่อนุมัติ</Label>
+                      <p className="text-lg font-semibold">
+                        {new Date(approvalData.created_at).toLocaleDateString('th-TH')}
+                      </p>
                     </div>
-                    <div className="text-center">
-                      <div className="text-lg font-bold text-green-600">{filteredStats.approved}</div>
-                      <div className="text-green-700">อนุมัติแล้ว</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-lg font-bold text-red-600">{filteredStats.rejected}</div>
-                      <div className="text-red-700">ไม่อนุมัติ</div>
-                    </div>
-                  </div>
-                  <div className="mt-3 pt-3 border-t border-blue-200">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                      <div className="text-center">
-                        <div className="text-lg font-bold text-blue-600">฿{parseFloat(filteredStats.totalAmount.toFixed(2)).toLocaleString()}</div>
-                        <div className="text-blue-700">มูลค่ารวม</div>
+                    {approvalData.remark && (
+                      <div className="md:col-span-2">
+                        <Label className="text-sm font-medium text-gray-600">หมายเหตุ</Label>
+                        <p className="text-lg font-semibold mt-1">{approvalData.remark}</p>
                       </div>
-                      <div className="text-center">
-                        <div className="text-lg font-bold text-yellow-600">฿{parseFloat(filteredStats.pendingAmount.toFixed(2)).toLocaleString()}</div>
-                        <div className="text-yellow-700">มูลค่ารออนุมัติ</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-lg font-bold text-green-600">฿{parseFloat(filteredStats.approvedAmount.toFixed(2)).toLocaleString()}</div>
-                        <div className="text-green-700">มูลค่าอนุมัติแล้ว</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Filter Options */}
-              {showFilters && (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-6 border-t border-green-200">
-                  <div className="space-y-3">
-                    <Label htmlFor="status-filter" className="text-base font-semibold text-green-800">สถานะ</Label>
-                    <Select value={statusFilter} onValueChange={setStatusFilter}>
-                      <SelectTrigger className="h-12 text-base border-2 border-green-200 focus:border-green-500 focus:ring-4 focus:ring-green-200/50 bg-white/90 backdrop-blur-sm font-medium">
-                        <SelectValue placeholder="เลือกสถานะ" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-white/95 backdrop-blur-sm border-2 border-green-200">
-                        <SelectItem value="ALL" className="text-base font-medium py-3">ทั้งหมด</SelectItem>
-                        <SelectItem value="PENDING" className="text-base font-medium py-3">รอการอนุมัติ</SelectItem>
-                        <SelectItem value="APPROVED" className="text-base font-medium py-3">อนุมัติแล้ว</SelectItem>
-                        <SelectItem value="REJECTED" className="text-base font-medium py-3">ไม่อนุมัติ</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  <div className="space-y-3">
-                    <Label htmlFor="date-from" className="text-base font-semibold text-blue-800">วันที่เริ่มต้น</Label>
-                    <Input
-                      id="date-from"
-                      type="date"
-                      value={dateFrom}
-                      onChange={(e) => setDateFrom(e.target.value)}
-                      className="h-12 text-base border-2 border-blue-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-200/50 bg-white/90 backdrop-blur-sm font-medium"
-                    />
-                  </div>
-                  
-                  <div className="space-y-3">
-                    <Label htmlFor="date-to" className="text-base font-semibold text-blue-800">วันที่สิ้นสุด</Label>
-                    <Input
-                      id="date-to"
-                      type="date"
-                      value={dateTo}
-                      onChange={(e) => setDateTo(e.target.value)}
-                      className="h-12 text-base border-2 border-blue-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-200/50 bg-white/90 backdrop-blur-sm font-medium"
-                    />
+                    )}
                   </div>
                 </div>
               )}
             </div>
-          </CardContent>
-        </Card>
+          )}
+        </DialogContent>
+      </Dialog>
 
-        {/* Add New Request Dialog */}
-        <Dialog open={addDialogOpen} onOpenChange={(open) => {
-          setAddDialogOpen(open);
-          if (!open) {
-            setSelectedRequest(null);
-          }
-        }}>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>เพิ่มคำขออนุมัติใช้งบประมาณ</DialogTitle>
-              <DialogDescription>
-                กรอกข้อมูลคำขออนุมัติใช้งบประมาณใหม่
-              </DialogDescription>
-            </DialogHeader>
-            <AddBudgetRequestDialog 
+      {/* Edit Request Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={(open) => {
+        setEditDialogOpen(open);
+        if (!open) {
+          setSelectedRequest(null);
+        }
+      }}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>แก้ไขคำขออนุมัติใช้งบประมาณ</DialogTitle>
+            <DialogDescription>
+              แก้ไขข้อมูลคำขอ {selectedRequest?.request_no}
+            </DialogDescription>
+          </DialogHeader>
+          {selectedRequest && (
+            <AddBudgetRequestDialog
               onSuccess={() => {
-                setAddDialogOpen(false);
+                setEditDialogOpen(false);
                 setSelectedRequest(null);
                 fetchRequests();
               }}
+              editRequest={selectedRequest}
             />
-          </DialogContent>
-        </Dialog>
-
-        {/* Requests List */}
-        <div className="grid gap-4">
-          {!Array.isArray(filteredRequests) || filteredRequests.length === 0 ? (
-            <Card>
-              <CardContent className="text-center p-8">
-                {hasActiveFilters ? (
-                  <>
-                    <Search className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-                    <h3 className="text-lg font-semibold mb-2">ไม่พบผลลัพธ์การค้นหา</h3>
-                    <p className="text-muted-foreground mb-4">
-                      ลองเปลี่ยนคำค้นหาหรือตัวกรองของคุณ
-                    </p>
-                    <Button onClick={clearFilters} variant="outline">
-                      ล้างตัวกรอง
-                    </Button>
-                  </>
-                ) : (
-                  <>
-                    <FileText className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-                    <h3 className="text-lg font-semibold mb-2">ยังไม่มีคำขออนุมัติ</h3>
-                    <p className="text-muted-foreground mb-4">
-                      เริ่มต้นโดยการสร้างคำขออนุมัติใช้งบประมาณใหม่
-                    </p>
-                    <Button onClick={() => {
-                      // Close all other dialogs first
-                      setEditDialogOpen(false);
-                      setDetailDialogOpen(false);
-                      setDeleteDialogOpen(false);
-                      setSelectedRequest(null);
-                      // Then open add dialog
-                      setAddDialogOpen(true);
-                    }}>
-                      <Plus className="h-4 w-4 mr-2" />
-                      เพิ่มคำขอใหม่
-                    </Button>
-                  </>
-                )}
-              </CardContent>
-            </Card>
-          ) : (
-            Array.isArray(filteredRequests) && filteredRequests.map((request) => (
-              <Card key={request.id} className="hover:shadow-md transition-shadow">
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-4 mb-3">
-                        <h3 className="text-lg font-semibold">{request.request_no}</h3>
-                        {getStatusBadge(request.status)}
-                      </div>
-                      
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                        <div className="flex items-center gap-2">
-                          <User className="h-4 w-4 text-muted-foreground" />
-                          <span className="text-muted-foreground">ผู้ขอ:</span>
-                          <span className="font-medium">{request.requester}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Calendar className="h-4 w-4 text-muted-foreground" />
-                          <span className="text-muted-foreground">วันที่:</span>
-                          <span>{new Date(request.request_date).toLocaleDateString('th-TH')}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <CreditCard className="h-4 w-4 text-muted-foreground" />
-                          <span className="text-muted-foreground">จำนวน:</span>
-                          <span className="font-semibold text-primary">
-                            ฿{parseFloat((Number(request.amount) || 0).toFixed(2)).toLocaleString('th-TH')}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="mt-2 text-sm text-muted-foreground">
-                        <span>บัญชี: {request.account_code} - {request.account_name}</span>
-                      </div>
-                    </div>
-
-                     <div className="flex items-center gap-2">
-                       <Button
-                         variant="outline"
-                         size="sm"
-                         onClick={() => {
-                           setSelectedRequest(request);
-                           setDetailDialogOpen(true);
-                         }}
-                       >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="outline" size="sm">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem
-                            onClick={() => handlePrint(request)}
-                          >
-                            <Printer className="h-4 w-4 mr-2" />
-                            พิมพ์
-                          </DropdownMenuItem>
-                          {request.status === 'PENDING' && (
-                            <>
-                              <DropdownMenuItem
-                                onClick={() => {
-                                  // Close all other dialogs first
-                                  setAddDialogOpen(false);
-                                  setDetailDialogOpen(false);
-                                  setDeleteDialogOpen(false);
-                                  // Then set selected request and open edit dialog
-                                  setSelectedRequest(request);
-                                  setEditDialogOpen(true);
-                                }}
-                              >
-                                <FileText className="h-4 w-4 mr-2" />
-                                แก้ไข
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                className="text-destructive"
-                                onClick={() => {
-                                  setRequestToDelete(request);
-                                  setDeleteDialogOpen(true);
-                                }}
-                              >
-                                <Trash2 className="h-4 w-4 mr-2" />
-                                ลบ
-                              </DropdownMenuItem>
-                            </>
-                          )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))
           )}
-        </div>
-
-        {/* Detail Dialog */}
-        <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <div className="flex items-center justify-between">
-                <DialogTitle>รายละเอียดคำขออนุมัติ</DialogTitle>
-                <div className="flex items-center gap-2">
-                  {selectedRequest && (
-                    <Button 
-                      onClick={() => handlePrint(selectedRequest)}
-                      variant="outline"
-                      size="sm"
-                      className="gap-2"
-                    >
-                      <Printer className="h-4 w-4" />
-                      พิมพ์
-                    </Button>
-                  )}
-                  <Button 
-                    onClick={() => setDetailDialogOpen(false)}
-                    variant="outline"
-                    size="sm"
-                    className="gap-2"
-                  >
-                    <X className="h-4 w-4" />
-                    ปิด
-                  </Button>
-                </div>
-              </div>
-            </DialogHeader>
-            {selectedRequest && (
-              <div className="space-y-6">
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                   <div className="space-y-2">
-                     <span className="text-sm font-medium text-muted-foreground">เลขที่คำขอ</span>
-                     <p className="text-lg font-semibold">{selectedRequest.request_no}</p>
-                   </div>
-                   <div className="space-y-2">
-                     <span className="text-sm font-medium text-muted-foreground">สถานะ</span>
-                     <div>{getStatusBadge(selectedRequest.status)}</div>
-                   </div>
-                   <div className="space-y-2">
-                     <span className="text-sm font-medium text-muted-foreground">ผู้ขอ</span>
-                     <p>{selectedRequest.requester}</p>
-                   </div>
-                   <div className="space-y-2">
-                     <span className="text-sm font-medium text-muted-foreground">วันที่ขอ</span>
-                     <p>{new Date(selectedRequest.request_date).toLocaleDateString('th-TH')}</p>
-                   </div>
-                   <div className="space-y-2">
-                     <span className="text-sm font-medium text-muted-foreground">รหัสบัญชี</span>
-                     <p>{selectedRequest.account_code} - {selectedRequest.account_name}</p>
-                   </div>
-                   <div className="space-y-2">
-                     <span className="text-sm font-medium text-muted-foreground">จำนวนเงิน</span>
-                     <p className="text-2xl font-bold text-primary">
-                       ฿{parseFloat((Number(selectedRequest.amount) || 0).toFixed(2)).toLocaleString('th-TH')}
-                     </p>
-                   </div>
-                   {approvalData && (
-                     <>
-                       <div className="space-y-2">
-                         <span className="text-sm font-medium text-muted-foreground">ผู้อนุมัติ</span>
-                         <p className="font-medium">{approvalData.approver_name}</p>
-                       </div>
-                       <div className="space-y-2">
-                         <span className="text-sm font-medium text-muted-foreground">วันที่อนุมัติ</span>
-                         <p>{new Date(approvalData.created_at).toLocaleDateString('th-TH', { 
-                           year: 'numeric', 
-                           month: 'long', 
-                           day: 'numeric',
-                           hour: '2-digit',
-                           minute: '2-digit'
-                         })}</p>
-                       </div>
-                     </>
-                   )}
-                 </div>
-
-                 {approvalData?.remark && (
-                   <div className="space-y-2">
-                     <span className="text-sm font-medium text-muted-foreground">หมายเหตุจากผู้อนุมัติ</span>
-                     <p className="bg-muted p-3 rounded-lg border-l-4 border-primary">{approvalData.remark}</p>
-                   </div>
-                 )}
-
-                {selectedRequest.note && (
-                  <div className="space-y-2">
-                    <span className="text-sm font-medium text-muted-foreground">หมายเหตุ</span>
-                    <p className="bg-muted p-3 rounded-lg">{selectedRequest.note}</p>
-                  </div>
-                )}
-
-                <div className="space-y-2">
-                  <span className="text-sm font-medium text-muted-foreground">รายการวัสดุ</span>
-                  {selectedRequest.material_list && Array.isArray(selectedRequest.material_list) && selectedRequest.material_list.length > 0 ? (
-                    <div className="border rounded-lg overflow-hidden">
-                      <table className="w-full">
-                        <thead className="bg-muted">
-                          <tr>
-                            <th className="text-left p-3 font-medium">รายการ</th>
-                            <th className="text-left p-3 font-medium">จำนวน</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {Array.isArray(selectedRequest.material_list) && selectedRequest.material_list.map((item, index) => (
-                            <tr key={index} className="border-t">
-                              <td className="p-3">{item.item || 'ไม่ระบุ'}</td>
-                              <td className="p-3">{item.quantity || 'ไม่ระบุ'}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  ) : (
-                    <p className="text-muted-foreground bg-muted p-3 rounded-lg text-center">
-                      ไม่มีรายการวัสดุที่ระบุ
-                    </p>
-                  )}
-                </div>
-              </div>
-            )}
-          </DialogContent>
-        </Dialog>
-
-        {/* Delete Confirmation Dialog */}
-        <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>ยืนยันการลบ</AlertDialogTitle>
-              <AlertDialogDescription>
-                คุณต้องการลบคำขอเลขที่ {requestToDelete?.request_no} หรือไม่?
-                การดำเนินการนี้ไม่สามารถย้อนกลับได้
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>ยกเลิก</AlertDialogCancel>
-              <AlertDialogAction 
-                onClick={handleDelete}
-                className="bg-destructive hover:bg-destructive/90"
-              >
-                ลบ
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-
-        {/* Edit Request Dialog */}
-        <Dialog open={editDialogOpen} onOpenChange={(open) => {
-          setEditDialogOpen(open);
-          if (!open) {
-            setSelectedRequest(null);
-          }
-        }}>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>แก้ไขคำขออนุมัติใช้งบประมาณ</DialogTitle>
-              <DialogDescription>
-                แก้ไขข้อมูลคำขอ {selectedRequest?.request_no}
-              </DialogDescription>
-            </DialogHeader>
-            {selectedRequest && (
-              <AddBudgetRequestDialog
-                onSuccess={() => {
-                  setEditDialogOpen(false);
-                  setSelectedRequest(null);
-                  fetchRequests();
-                }}
-                editRequest={selectedRequest}
-              />
-            )}
-          </DialogContent>
-        </Dialog>
-      </div>
-    </Layout>
+        </DialogContent>
+      </Dialog>
+    </ProductsStylePageLayout>
   );
 }

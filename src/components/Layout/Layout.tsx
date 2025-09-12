@@ -25,7 +25,7 @@ export function Layout({ children, title, hideHeader = false, onLogout }: Layout
           <div className="w-full px-4 py-6 sm:px-6 lg:px-8 relative">
             {/* Content Background - Removed glass effects */}
             <div className="relative z-10 w-full">
-              <div className="mx-auto max-w-7xl">
+              <div className="w-full">
                 {children}
               </div>
             </div>

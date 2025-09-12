@@ -595,6 +595,95 @@ export class ApiService {
       body: JSON.stringify(settings),
     });
   }
+
+
+  static async saveSettings(settings: any): Promise<void> {
+    return this.fetchApi('/settings', {
+      method: 'POST',
+      body: JSON.stringify(settings),
+    });
+  }
+
+  static async testConnection(): Promise<boolean> {
+    try {
+      await this.fetchApi('/test', {
+        method: 'GET',
+      });
+      return true;
+    } catch (error) {
+      console.error('❌ Server connection test failed:', error);
+      throw error;
+    }
+  }
+
+  static async testDatabase(): Promise<boolean> {
+    try {
+      await this.fetchApi('/test-db', {
+        method: 'GET',
+      });
+      return true;
+    } catch (error) {
+      console.error('❌ Database connection test failed:', error);
+      throw error;
+    }
+  }
+
+  static async exportData(): Promise<void> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/export`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(firebaseIdToken && { 'Authorization': `Bearer ${firebaseIdToken}` })
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `material-management-export-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error('❌ Failed to export data:', error);
+      throw error;
+    }
+  }
+
+  static async importData(file: File): Promise<void> {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      const response = await fetch(`${API_BASE_URL}/import`, {
+        method: 'POST',
+        headers: {
+          ...(firebaseIdToken && { 'Authorization': `Bearer ${firebaseIdToken}` })
+        },
+        body: formData
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+    } catch (error) {
+      console.error('❌ Failed to import data:', error);
+      throw error;
+    }
+  }
+
+  static async deleteAllData(): Promise<void> {
+    return this.fetchApi('/delete-all', {
+      method: 'DELETE',
+    });
+  }
 }
 
 // Export instance

@@ -6,23 +6,28 @@ service cloud.firestore {
       return request.auth != null;
     }
     
-    // ฟังก์ชันตรวจสอบ role
+    // ฟังก์ชันดึงข้อมูลผู้ใช้ปัจจุบัน
+    function getCurrentUser() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+    
+    // ฟังก์ชันตรวจสอบ role ของผู้ใช้ปัจจุบัน
     function hasRole(role) {
       return isAuthenticated() && 
-             resource.data.role == role;
+             getCurrentUser().role == role;
     }
     
     // ฟังก์ชันตรวจสอบว่าเป็น admin
     function isAdmin() {
       return isAuthenticated() && 
-             (resource.data.role == 'admin' || 
+             (getCurrentUser().role == 'admin' || 
               request.auth.token.email.matches('.*@admin\\.'));
     }
     
     // ฟังก์ชันตรวจสอบว่าเป็น manager หรือ admin
     function isManagerOrAdmin() {
       return isAuthenticated() && 
-             (resource.data.role in ['admin', 'manager'] || 
+             (getCurrentUser().role in ['admin', 'manager'] || 
               request.auth.token.email.matches('.*@admin\\.'));
     }
     
@@ -32,19 +37,37 @@ service cloud.firestore {
              resource.data.userId == request.auth.uid;
     }
     
-    // ฟังก์ชันตรวจสอบการเข้าถึงข้อมูล
+    // ฟังก์ชันตรวจสอบสิทธิ์การเข้าถึงตาม role
     function canRead() {
       return isAuthenticated();
     }
     
     function canWrite() {
       return isAuthenticated() && 
-             (resource.data.role in ['admin', 'manager', 'staff']);
+             (getCurrentUser().role in ['admin', 'manager', 'user']);
     }
     
     function canDelete() {
       return isAuthenticated() && 
-             (resource.data.role in ['admin', 'manager']);
+             (getCurrentUser().role in ['admin', 'manager']);
+    }
+    
+    // ฟังก์ชันตรวจสอบสิทธิ์การจัดการผู้ใช้
+    function canManageUsers() {
+      return isAuthenticated() && 
+             (getCurrentUser().role == 'admin');
+    }
+    
+    // ฟังก์ชันตรวจสอบสิทธิ์การอนุมัติ
+    function canApprove() {
+      return isAuthenticated() && 
+             (getCurrentUser().role in ['admin', 'manager']);
+    }
+    
+    // ฟังก์ชันตรวจสอบสิทธิ์การตั้งค่า
+    function canManageSettings() {
+      return isAuthenticated() && 
+             (getCurrentUser().role == 'admin');
     }
     
     // Products Collection
@@ -82,9 +105,9 @@ service cloud.firestore {
     // Users Collection
     match /users/{userId} {
       allow read: if canRead();
-      allow create: if isAdmin();
-      allow update: if isAdmin() || isOwner();
-      allow delete: if isAdmin();
+      allow create: if canManageUsers();
+      allow update: if canManageUsers() || (isOwner() && getCurrentUser().role != 'admin');
+      allow delete: if canManageUsers();
     }
     
     // Budget Requests Collection
@@ -99,7 +122,7 @@ service cloud.firestore {
     match /approvals/{approvalId} {
       allow read: if canRead();
       allow create: if canWrite();
-      allow update: if isManagerOrAdmin();
+      allow update: if canApprove();
       allow delete: if isAdmin();
     }
     
@@ -146,9 +169,9 @@ service cloud.firestore {
     // App Settings Collection
     match /appSettings/{settingId} {
       allow read: if canRead();
-      allow create: if isAdmin();
-      allow update: if isAdmin();
-      allow delete: if isAdmin();
+      allow create: if canManageSettings();
+      allow update: if canManageSettings();
+      allow delete: if canManageSettings();
     }
     
     // Audit Logs Collection
