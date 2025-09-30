@@ -4,20 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { 
-  RefreshCw, 
-  Grid3X3, 
-  List, 
-  CheckSquare, 
-  Square, 
-  MoreVertical, 
-  ArrowUpDown, 
-  Filter, 
-  X, 
-  Edit, 
-  Trash2,
-  Package
-} from 'lucide-react';
+import { RefreshCw, Grid3x3 as Grid3X3, List, CheckSquare, Square, MoreVertical, ArrowUpDown, Filter, X, FileEdit as Edit, Trash2, Package } from 'lucide-react';
 import { TableColumn } from './products-style-components';
 
 export interface ProductsStyleDataTableProps {
