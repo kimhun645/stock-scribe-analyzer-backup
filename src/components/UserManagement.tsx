@@ -8,22 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { 
-  Plus, 
-  Edit, 
-  Trash2, 
-  User as UserIcon, 
-  Shield, 
-  Crown, 
-  Mail, 
-  Calendar,
-  CheckCircle,
-  XCircle,
-  Loader2,
-  Search,
-  Filter,
-  MoreVertical
-} from 'lucide-react';
+import { Plus, FileEdit as Edit, Trash2, User as UserIcon, Shield, Crown, Mail, Calendar, CheckCircle, XCircle, Loader2, Search, Filter, MoreVertical } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { userService, User, CreateUserData, UpdateUserData, UserRole } from '@/lib/userService';
