@@ -334,11 +334,11 @@ export function ProductsStyleDataTable({
                                 <Edit className="relative h-4 w-4 group-hover:scale-110 transition-transform duration-300" />
                               </Button>
                             )}
-                            <Button 
-                              variant="ghost" 
+                            <Button
+                              variant="ghost"
                               size="sm"
                               className="group relative text-destructive hover:text-destructive h-10 w-10 hover:bg-red-50 transition-all duration-300 hover:scale-110 transform rounded-xl border border-transparent hover:border-red-200"
-                              onClick={() => onDelete(itemId)}
+                              onClick={() => onDelete(item)}
                               title="ลบ"
                             >
                               <div className="absolute inset-0 bg-gradient-to-br from-red-500/10 to-pink-500/10 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
@@ -608,7 +608,7 @@ export function ProductsStyleDataTable({
                             size="sm"
                             onClick={(e) => {
                               e.stopPropagation();
-                              onDelete(itemId);
+                              onDelete(item);
                             }}
                             className="h-8 w-8 p-0 hover:bg-red-50 hover:text-red-600 rounded-lg"
                           >

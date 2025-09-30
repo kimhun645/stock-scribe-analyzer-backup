@@ -192,10 +192,13 @@ export default function Products() {
   };
 
   const handleDeleteProduct = (product: ProductWithCategory) => {
-    console.log('Deleting product:', product);
+    console.log('Deleting product - full object:', JSON.stringify(product, null, 2));
+    console.log('Product keys:', Object.keys(product));
     console.log('Product ID:', product.id);
 
-    if (!product || !product.id) {
+    const productId = product.id || (product as any).documentId;
+
+    if (!product || !productId) {
       toast({
         title: "เกิดข้อผิดพลาด",
         description: "ไม่พบข้อมูลสินค้าที่ต้องการลบ",
@@ -204,7 +207,8 @@ export default function Products() {
       return;
     }
 
-    setProductToDelete(product);
+    const productWithId = { ...product, id: productId };
+    setProductToDelete(productWithId);
     setDeleteDialogOpen(true);
   };
 
