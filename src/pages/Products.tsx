@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, Search, FileEdit as Edit, Trash2, Package, BarChart3, TrendingUp, AlertTriangle, Eye, Filter, RefreshCw, Download, Upload, Grid3x3 as Grid3X3, List, CheckSquare, Square, MoreVertical, Copy, Star, Heart, Tag, DollarSign, MapPin, Building2 } from 'lucide-react';
-import { api, type Product } from '@/lib/apiService';
+import { type Product } from '@/lib/firestoreService';
 import { AddProductDialog } from '@/components/Dialogs/AddProductDialog';
 import { EditProductDialog } from '@/components/Dialogs/EditProductDialog';
 import { useToast } from '@/hooks/use-toast';
@@ -192,12 +192,35 @@ export default function Products() {
   };
 
   const handleDeleteProduct = (product: ProductWithCategory) => {
+    console.log('Deleting product:', product);
+    console.log('Product ID:', product.id);
+
+    if (!product || !product.id) {
+      toast({
+        title: "เกิดข้อผิดพลาด",
+        description: "ไม่พบข้อมูลสินค้าที่ต้องการลบ",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setProductToDelete(product);
     setDeleteDialogOpen(true);
   };
 
   const confirmDeleteProduct = async () => {
     if (!productToDelete) return;
+
+    if (!productToDelete.id) {
+      toast({
+        title: "เกิดข้อผิดพลาด",
+        description: "ไม่พบรหัสสินค้า",
+        variant: "destructive",
+      });
+      setDeleteDialogOpen(false);
+      setProductToDelete(null);
+      return;
+    }
 
     try {
       const { firestoreService } = await import('@/lib/firestoreService');

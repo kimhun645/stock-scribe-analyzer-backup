@@ -184,6 +184,9 @@ export class FirestoreService {
 
   static async deleteProduct(id: string): Promise<void> {
     try {
+      if (!id) {
+        throw new Error('Product ID is required');
+      }
       const docRef = doc(db, 'products', id);
       await deleteDoc(docRef);
     } catch (error) {
