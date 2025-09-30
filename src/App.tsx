@@ -6,7 +6,6 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { NavigationProvider } from './contexts/NavigationContext';
 import { SearchProvider } from './contexts/SearchContext';
 import { Toaster } from './components/ui/toaster';
-import { LoginForm } from './components/LoginForm';
 import { PageLoader, NavigationLoader } from './components/Layout/PageLoader';
 import { PageTransition } from './components/Layout/PageTransition';
 import { SessionWarningDialog } from './components/Dialogs/SessionWarningDialog';
@@ -50,32 +49,11 @@ function AppLayout() {
 }
 
 function AppContent() {
-  const { isAuthenticated, loading, sessionWarning, timeRemaining, extendSession, logout } = useAuth();
+  const { sessionWarning, timeRemaining, extendSession, logout } = useAuth();
 
-  // Initialize offline manager
   useEffect(() => {
     console.log('Initializing offline manager...');
-    // offlineManager is already initialized in its constructor
   }, []);
-
-  // Debug logging
-  console.log('AppContent render:', { isAuthenticated, loading });
-
-  if (loading) {
-    console.log('Showing loading screen');
-    return <LoadingSpinner message="กำลังตรวจสอบการเข้าสู่ระบบ..." />;
-  }
-
-  const handleLoginSuccess = () => {
-    // Login will be handled by AuthContext automatically
-  };
-
-  if (!isAuthenticated) {
-    console.log('Showing login form');
-    return <LoginForm onLoginSuccess={handleLoginSuccess} />;
-  }
-
-  console.log('User is authenticated, showing main app');
 
   // Create router with future flags
   const router = createBrowserRouter([
