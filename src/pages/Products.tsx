@@ -142,20 +142,22 @@ export default function Products() {
   // Handle bulk delete
   const handleBulkDelete = async () => {
     if (selectedProducts.length === 0) return;
-    
+
     try {
+      const { firestoreService } = await import('@/lib/firestoreService');
       for (const productId of selectedProducts) {
-        await api.deleteProduct(productId);
+        await firestoreService.deleteProduct(productId);
       }
-      
+
       toast({
         title: "สำเร็จ",
         description: `ลบสินค้า ${selectedProducts.length} รายการสำเร็จแล้ว`,
       });
-      
+
       fetchProducts();
       setSelectedProducts([]);
     } catch (error) {
+      console.error('Error deleting products:', error);
       toast({
         title: "เกิดข้อผิดพลาด",
         description: "ไม่สามารถลบสินค้าได้",
@@ -198,7 +200,8 @@ export default function Products() {
     if (!productToDelete) return;
 
     try {
-      await api.deleteProduct(productToDelete.id);
+      const { firestoreService } = await import('@/lib/firestoreService');
+      await firestoreService.deleteProduct(productToDelete.id);
 
       toast({
         title: "สำเร็จ",
@@ -207,6 +210,7 @@ export default function Products() {
 
       fetchProducts();
     } catch (error) {
+      console.error('Error deleting product:', error);
       toast({
         title: "เกิดข้อผิดพลาด",
         description: "ไม่สามารถลบสินค้าได้",
