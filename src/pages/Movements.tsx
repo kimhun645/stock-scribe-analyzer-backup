@@ -51,7 +51,8 @@ export default function Movements() {
   const fetchMovements = async () => {
     try {
       setIsLoading(true);
-      const response = await api.getMovements();
+      const { firestoreService } = await import('@/lib/firestoreService');
+      const response = await firestoreService.getMovements();
       setMovements(response);
     } catch (error) {
       console.error('Error fetching movements:', error);

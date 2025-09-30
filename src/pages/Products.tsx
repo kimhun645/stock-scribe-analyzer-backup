@@ -166,12 +166,14 @@ export default function Products() {
 
   const fetchProducts = async () => {
     try {
-      const productsData = await api.getProducts();
-      const categoriesData = await api.getCategories();
+      const { firestoreService } = await import('@/lib/firestoreService');
+      const productsData = await firestoreService.getProducts();
+      const categoriesData = await firestoreService.getCategories();
 
       setProducts(productsData || []);
       setCategories(categoriesData || []);
     } catch (error) {
+      console.error('Error fetching products:', error);
       toast({
         title: "เกิดข้อผิดพลาด",
         description: "ไม่สามารถโหลดข้อมูลสินค้าได้",
