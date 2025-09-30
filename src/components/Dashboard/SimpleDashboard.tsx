@@ -34,17 +34,34 @@ export function SimpleDashboard() {
   const fetchDashboardData = async () => {
     setLoading(true);
     try {
-      // Mock data
-      const mockStats: SimpleStats = {
-        totalProducts: 1250,
-        lowStockItems: 23,
-        outOfStockItems: 5,
-        totalValue: 2500000,
-        recentMovements: 45,
-        pendingApprovals: 8
+      const { firestoreService } = await import('@/lib/firestoreService');
+
+      const [products, movements] = await Promise.all([
+        firestoreService.getProducts(),
+        firestoreService.getMovements()
+      ]);
+
+      const lowStockItems = products.filter(p => p.currentStock <= p.minStock).length;
+      const outOfStockItems = products.filter(p => p.currentStock === 0).length;
+      const totalValue = products.reduce((sum, p) => sum + (p.currentStock * (p.price || 0)), 0);
+
+      const now = new Date();
+      const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      const recentMovements = movements.filter(m => {
+        const movementDate = new Date(m.createdAt);
+        return movementDate >= thirtyDaysAgo;
+      }).length;
+
+      const dashboardStats: SimpleStats = {
+        totalProducts: products.length,
+        lowStockItems,
+        outOfStockItems,
+        totalValue,
+        recentMovements,
+        pendingApprovals: 0
       };
-      
-      setStats(mockStats);
+
+      setStats(dashboardStats);
       setLastUpdated(new Date());
     } catch (error) {
       console.error('Error fetching dashboard data:', error);

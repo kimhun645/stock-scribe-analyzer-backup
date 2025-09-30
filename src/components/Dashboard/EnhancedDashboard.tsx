@@ -54,55 +54,123 @@ export function EnhancedDashboard() {
   const fetchDashboardData = async () => {
     setLoading(true);
     try {
-      // Try to fetch real data from API first
-      const [productsRes, categoriesRes, movementsRes] = await Promise.allSettled([
-        fetch('/api/products'),
-        fetch('/api/categories'),
-        fetch('/api/stock-movements')
+      const { firestoreService } = await import('@/lib/firestoreService');
+
+      const [products, categories, movements] = await Promise.all([
+        firestoreService.getProducts(),
+        firestoreService.getCategories(),
+        firestoreService.getMovements()
       ]);
 
-      let mockStats: DashboardStats = {
-        totalProducts: 1250,
-        lowStockItems: 23,
-        outOfStockItems: 5,
-        expiredItems: 8,
-        totalValue: 2500000,
-        recentMovements: 45,
-        pendingApprovals: 8,
-        monthlyGrowth: 12.5,
-        topCategories: [
-          { name: 'อิเล็กทรอนิกส์', count: 450, value: 1200000, color: '#3B82F6' },
-          { name: 'เสื้อผ้า', count: 320, value: 800000, color: '#10B981' },
-          { name: 'ของใช้ในบ้าน', count: 280, value: 500000, color: '#F59E0B' },
-          { name: 'หนังสือ', count: 200, value: 300000, color: '#EF4444' },
-          { name: 'อาหาร', count: 150, value: 200000, color: '#8B5CF6' }
-        ],
-        lowStockProducts: [
-          { id: '1', name: 'iPhone 15 Pro', currentStock: 5, minStock: 10, category: 'อิเล็กทรอนิกส์' },
-          { id: '2', name: 'เสื้อยืด Cotton', currentStock: 8, minStock: 15, category: 'เสื้อผ้า' },
-          { id: '3', name: 'หม้อหุงข้าว', currentStock: 3, minStock: 8, category: 'ของใช้ในบ้าน' },
-          { id: '4', name: 'หนังสือ Python', currentStock: 2, minStock: 5, category: 'หนังสือ' }
-        ],
-        outOfStockProducts: [
-          { id: '5', name: 'MacBook Air M2', category: 'อิเล็กทรอนิกส์', lastRestock: '2024-01-15' },
-          { id: '6', name: 'กางเกงยีนส์', category: 'เสื้อผ้า', lastRestock: '2024-01-10' },
-          { id: '7', name: 'เตาแก๊ส', category: 'ของใช้ในบ้าน', lastRestock: '2024-01-08' }
-        ],
-        expiredProducts: [
-          { id: '8', name: 'นมสด', expiryDate: '2024-01-20', category: 'อาหาร', daysUntilExpiry: 2 },
-          { id: '9', name: 'ขนมปัง', expiryDate: '2024-01-18', category: 'อาหาร', daysUntilExpiry: 0 },
-          { id: '10', name: 'ยาแก้ปวด', expiryDate: '2024-01-25', category: 'ยา', daysUntilExpiry: 7 }
-        ]
+      const lowStockItems = products.filter(p => p.currentStock <= p.minStock).length;
+      const outOfStockItems = products.filter(p => p.currentStock === 0).length;
+      const totalValue = products.reduce((sum, p) => sum + (p.currentStock * (p.price || 0)), 0);
+
+      const now = new Date();
+      const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      const recentMovements = movements.filter(m => {
+        const movementDate = new Date(m.createdAt);
+        return movementDate >= thirtyDaysAgo;
+      }).length;
+
+      const categoryColors = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#06B6D4', '#8B5CF6'];
+      const categoryCounts = products.reduce((acc, product) => {
+        const categoryId = product.categoryId;
+        if (!acc[categoryId]) {
+          acc[categoryId] = { count: 0, value: 0 };
+        }
+        acc[categoryId].count++;
+        acc[categoryId].value += product.currentStock * (product.price || 0);
+        return acc;
+      }, {} as Record<string, { count: number; value: number }>);
+
+      const topCategories = Object.entries(categoryCounts)
+        .map(([categoryId, data], index) => {
+          const category = categories.find(c => c.id === categoryId);
+          return {
+            name: category?.name || 'ไม่ระบุ',
+            count: data.count,
+            value: data.value,
+            color: categoryColors[index % categoryColors.length]
+          };
+        })
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 5);
+
+      const lowStockProducts = products
+        .filter(p => p.currentStock > 0 && p.currentStock <= p.minStock)
+        .slice(0, 4)
+        .map(p => {
+          const category = categories.find(c => c.id === p.categoryId);
+          return {
+            id: p.id,
+            name: p.name,
+            currentStock: p.currentStock,
+            minStock: p.minStock,
+            category: category?.name || 'ไม่ระบุ'
+          };
+        });
+
+      const outOfStockProducts = products
+        .filter(p => p.currentStock === 0)
+        .slice(0, 3)
+        .map(p => {
+          const category = categories.find(c => c.id === p.categoryId);
+          return {
+            id: p.id,
+            name: p.name,
+            category: category?.name || 'ไม่ระบุ',
+            lastRestock: p.updatedAt || p.createdAt
+          };
+        });
+
+      const expiredProducts = products
+        .filter(p => p.expiryDate)
+        .map(p => {
+          const expiryDate = new Date(p.expiryDate!);
+          const daysUntilExpiry = Math.ceil((expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+          const category = categories.find(c => c.id === p.categoryId);
+          return {
+            id: p.id,
+            name: p.name,
+            expiryDate: p.expiryDate!,
+            category: category?.name || 'ไม่ระบุ',
+            daysUntilExpiry
+          };
+        })
+        .filter(p => p.daysUntilExpiry <= 30)
+        .sort((a, b) => a.daysUntilExpiry - b.daysUntilExpiry)
+        .slice(0, 3);
+
+      const sixtyDaysAgo = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000);
+      const lastMonthMovements = movements.filter(m => {
+        const movementDate = new Date(m.createdAt);
+        return movementDate >= thirtyDaysAgo;
+      }).length;
+      const previousMonthMovements = movements.filter(m => {
+        const movementDate = new Date(m.createdAt);
+        return movementDate >= sixtyDaysAgo && movementDate < thirtyDaysAgo;
+      }).length;
+      const monthlyGrowth = previousMonthMovements > 0
+        ? ((lastMonthMovements - previousMonthMovements) / previousMonthMovements) * 100
+        : 0;
+
+      const dashboardStats: DashboardStats = {
+        totalProducts: products.length,
+        lowStockItems,
+        outOfStockItems,
+        expiredItems: expiredProducts.length,
+        totalValue,
+        recentMovements,
+        pendingApprovals: 0,
+        monthlyGrowth,
+        topCategories,
+        lowStockProducts,
+        outOfStockProducts,
+        expiredProducts
       };
 
-      // If API calls are successful, use real data
-      if (productsRes.status === 'fulfilled' && productsRes.value.ok) {
-        const productsData = await productsRes.value.json();
-        // Process real data here
-        console.log('Real products data:', productsData);
-      }
-      
-      setStats(mockStats);
+      setStats(dashboardStats);
       setLastUpdated(new Date());
     } catch (error) {
       console.error('Error fetching dashboard data:', error);

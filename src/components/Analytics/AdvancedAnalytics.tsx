@@ -53,63 +53,107 @@ export function AdvancedAnalytics() {
   const fetchAnalyticsData = async () => {
     setLoading(true);
     try {
-      // Simulate API call - replace with actual API
-      const mockData: AnalyticsData = {
+      const totalValue = products.reduce((sum, p) => sum + (p.currentStock * (p.price || 0)), 0);
+
+      const categoryCounts = products.reduce((acc, product) => {
+        const categoryId = product.categoryId;
+        const category = categories.find(c => c.id === categoryId);
+        const categoryName = category?.name || 'ไม่ระบุ';
+
+        if (!acc[categoryName]) {
+          acc[categoryName] = 0;
+        }
+        acc[categoryName] += product.currentStock * (product.price || 0);
+        return acc;
+      }, {} as Record<string, number>);
+
+      const categoryAnalytics = Object.entries(categoryCounts)
+        .map(([name, value]) => ({
+          name,
+          value,
+          percentage: totalValue > 0 ? (value / totalValue) * 100 : 0
+        }))
+        .sort((a, b) => b.value - a.value);
+
+      const now = new Date();
+      const getDaysAgo = (days: number) => new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+
+      const days = dateRange === '7d' ? 7 : dateRange === '30d' ? 30 : dateRange === '90d' ? 90 : 365;
+      const rangeStart = getDaysAgo(days);
+
+      const inMovements = movements.filter(m => {
+        const date = new Date(m.createdAt);
+        return m.type === 'in' && date >= rangeStart;
+      });
+      const outMovements = movements.filter(m => {
+        const date = new Date(m.createdAt);
+        return m.type === 'out' && date >= rangeStart;
+      });
+
+      const dailyMovements = Array.from({ length: Math.min(days, 30) }, (_, i) => {
+        const date = getDaysAgo(Math.min(days, 30) - i - 1);
+        const dateStr = date.toISOString().split('T')[0];
+        return {
+          date: dateStr,
+          in: movements.filter(m => m.type === 'in' && m.createdAt.startsWith(dateStr)).length,
+          out: movements.filter(m => m.type === 'out' && m.createdAt.startsWith(dateStr)).length
+        };
+      });
+
+      const productSales = products.map(p => ({
+        name: p.name,
+        sales: (p.currentStock * (p.price || 0)),
+        growth: 0
+      }))
+        .sort((a, b) => b.sales - a.sales)
+        .slice(0, 4);
+
+      const lowStockProducts = products
+        .filter(p => p.currentStock <= p.minStock && p.currentStock > 0)
+        .map(p => ({
+          name: p.name,
+          current: p.currentStock,
+          threshold: p.minStock
+        }))
+        .slice(0, 3);
+
+      const recentActivity = movements
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .slice(0, 3)
+        .map(m => {
+          const product = products.find(p => p.id === m.productId);
+          return {
+            type: m.type,
+            description: `${m.type === 'in' ? 'รับเข้า' : 'เบิกออก'} ${product?.name || 'สินค้า'} จำนวน ${m.quantity} ${product?.unit || 'ชิ้น'}`,
+            timestamp: new Date(m.createdAt)
+          };
+        });
+
+      const analyticsData: AnalyticsData = {
         sales: {
-          total: 2500000,
-          growth: 12.5,
-          monthly: [
-            { month: 'ม.ค.', value: 200000 },
-            { month: 'ก.พ.', value: 220000 },
-            { month: 'มี.ค.', value: 250000 },
-            { month: 'เม.ย.', value: 280000 },
-            { month: 'พ.ค.', value: 300000 },
-            { month: 'มิ.ย.', value: 320000 }
-          ]
+          total: totalValue,
+          growth: 0,
+          monthly: []
         },
         inventory: {
-          totalValue: 5000000,
-          turnover: 2.5,
-          categories: [
-            { name: 'อิเล็กทรอนิกส์', value: 2000000, percentage: 40 },
-            { name: 'เสื้อผ้า', value: 1500000, percentage: 30 },
-            { name: 'ของใช้ในบ้าน', value: 1000000, percentage: 20 },
-            { name: 'หนังสือ', value: 500000, percentage: 10 }
-          ]
+          totalValue,
+          turnover: 0,
+          categories: categoryAnalytics
         },
         movements: {
-          total: 150,
-          in: 80,
-          out: 70,
-          daily: [
-            { date: '2024-01-01', in: 5, out: 3 },
-            { date: '2024-01-02', in: 8, out: 6 },
-            { date: '2024-01-03', in: 12, out: 9 },
-            { date: '2024-01-04', in: 6, out: 4 },
-            { date: '2024-01-05', in: 10, out: 7 }
-          ]
+          total: movements.filter(m => new Date(m.createdAt) >= rangeStart).length,
+          in: inMovements.length,
+          out: outMovements.length,
+          daily: dailyMovements
         },
         performance: {
-          topProducts: [
-            { name: 'iPhone 15 Pro Max', sales: 500000, growth: 15.2 },
-            { name: 'Samsung Galaxy S24', sales: 450000, growth: 8.7 },
-            { name: 'MacBook Pro M3', sales: 400000, growth: 22.1 },
-            { name: 'iPad Air', sales: 350000, growth: 5.3 }
-          ],
-          lowStock: [
-            { name: 'iPhone 15 Pro Max', current: 5, threshold: 10 },
-            { name: 'Samsung Galaxy S24', current: 8, threshold: 15 },
-            { name: 'MacBook Pro M3', current: 3, threshold: 8 }
-          ],
-          recentActivity: [
-            { type: 'sale', description: 'ขาย iPhone 15 Pro Max จำนวน 2 ชิ้น', timestamp: new Date() },
-            { type: 'purchase', description: 'ซื้อ Samsung Galaxy S24 จำนวน 10 ชิ้น', timestamp: new Date() },
-            { type: 'movement', description: 'ย้าย MacBook Pro M3 ไปคลัง B', timestamp: new Date() }
-          ]
+          topProducts: productSales,
+          lowStock: lowStockProducts,
+          recentActivity
         }
       };
-      
-      setData(mockData);
+
+      setData(analyticsData);
     } catch (error) {
       console.error('Error fetching analytics data:', error);
     } finally {
