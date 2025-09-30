@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Search, Edit, Trash2, Pill, BarChart3, TrendingUp, Layers, Package, Filter } from 'lucide-react';
+import { Plus, Search, FileEdit as Edit, Trash2, Pill, BarChart3, TrendingUp, Layers, Package, Filter } from 'lucide-react';
 import { type Category } from '@/lib/firestoreService';
 import { AddCategoryDialog } from '@/components/Dialogs/AddCategoryDialog';
 import { EditCategoryDialog } from '@/components/Dialogs/EditCategoryDialog';
