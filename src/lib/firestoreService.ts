@@ -68,6 +68,30 @@ export interface Movement {
   updated_at: string;
 }
 
+export interface BudgetRequest {
+  id: string;
+  request_number: string;
+  title: string;
+  description?: string;
+  amount: number;
+  status: 'pending' | 'approved' | 'rejected';
+  requested_by: string;
+  requested_at: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Approval {
+  id: string;
+  request_id: string;
+  approver_id: string;
+  status: 'pending' | 'approved' | 'rejected';
+  comments?: string;
+  approved_at?: string;
+  created_at: string;
+  updated_at: string;
+}
+
 const toISOString = (timestamp: any): string => {
   if (!timestamp) return new Date().toISOString();
   if (timestamp.toDate) {
@@ -379,6 +403,71 @@ export class FirestoreService {
       return newMovement;
     } catch (error) {
       console.error('Error creating movement:', error);
+      throw error;
+    }
+  }
+
+  static async getBudgetRequests(): Promise<BudgetRequest[]> {
+    try {
+      const querySnapshot = await getDocs(collection(db, 'budget_requests'));
+      return querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        created_at: toISOString(doc.data().created_at),
+        updated_at: toISOString(doc.data().updated_at),
+        requested_at: toISOString(doc.data().requested_at)
+      } as BudgetRequest));
+    } catch (error) {
+      console.error('Error fetching budget requests:', error);
+      throw error;
+    }
+  }
+
+  static async updateBudgetRequest(id: string, updates: Partial<BudgetRequest>): Promise<void> {
+    try {
+      const docRef = doc(db, 'budget_requests', id);
+      await updateDoc(docRef, {
+        ...updates,
+        updated_at: serverTimestamp()
+      });
+    } catch (error) {
+      console.error('Error updating budget request:', error);
+      throw error;
+    }
+  }
+
+  static async deleteBudgetRequest(id: string): Promise<void> {
+    try {
+      await deleteDoc(doc(db, 'budget_requests', id));
+    } catch (error) {
+      console.error('Error deleting budget request:', error);
+      throw error;
+    }
+  }
+
+  static async getApprovalByRequestId(requestId: string): Promise<Approval | null> {
+    try {
+      const q = query(
+        collection(db, 'approvals'),
+        where('request_id', '==', requestId),
+        limit(1)
+      );
+      const querySnapshot = await getDocs(q);
+
+      if (querySnapshot.empty) {
+        return null;
+      }
+
+      const doc = querySnapshot.docs[0];
+      return {
+        id: doc.id,
+        ...doc.data(),
+        created_at: toISOString(doc.data().created_at),
+        updated_at: toISOString(doc.data().updated_at),
+        approved_at: doc.data().approved_at ? toISOString(doc.data().approved_at) : undefined
+      } as Approval;
+    } catch (error) {
+      console.error('Error fetching approval:', error);
       throw error;
     }
   }

@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { Plus, Eye, Trash2, MoreHorizontal, Printer, Calendar, User, CreditCard, FileText, Clock, CheckCircle, Search, Filter, X, RefreshCw, TrendingUp, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { api, type BudgetRequest as DBBudgetRequest } from '@/lib/apiService';
+import { type BudgetRequest as DBBudgetRequest, type Approval } from '@/lib/firestoreService';
 import { useBarcodeScanner } from '@/hooks/use-barcode-scanner';
 import { BarcodeScannerIndicator } from '@/components/ui/barcode-scanner-indicator';
 import {
@@ -97,7 +97,8 @@ export default function BudgetRequest() {
   const handleBulkDelete = async () => {
     try {
       for (const requestId of selectedRequests) {
-        await api.deleteBudgetRequest(requestId);
+        const { firestoreService } = await import('@/lib/firestoreService');
+        await firestoreService.deleteBudgetRequest(requestId);
       }
       
       toast({
@@ -141,7 +142,8 @@ export default function BudgetRequest() {
     const fetchApprovalData = async () => {
       if (selectedRequest && selectedRequest.status !== 'PENDING') {
         try {
-          const approval = await api.getApprovalByRequestId(String(selectedRequest.id));
+          const { firestoreService } = await import('@/lib/firestoreService');
+          const approval = await firestoreService.getApprovalByRequestId(String(selectedRequest.id));
           if (approval) {
             const approvalInfo: ApprovalInfo = {
               approver_name: approval.approver_name || 'ไม่ระบุ',
@@ -166,7 +168,8 @@ export default function BudgetRequest() {
   const fetchRequests = async () => {
     setLoading(true);
     try {
-      const data = await api.getBudgetRequests();
+      const { firestoreService } = await import('@/lib/firestoreService');
+      const data = await firestoreService.getBudgetRequests();
       // Ensure data is always an array
       setRequests(Array.isArray(data) ? data : []);
     } catch (err) {
@@ -190,7 +193,8 @@ export default function BudgetRequest() {
   const handleDelete = async () => {
     if (!requestToDelete) return;
     try {
-      await api.deleteBudgetRequest(String(requestToDelete.id));
+      const { firestoreService } = await import('@/lib/firestoreService');
+      await firestoreService.deleteBudgetRequest(String(requestToDelete.id));
       toast({ title: 'ลบสำเร็จ', description: `ลบคำขอ ${requestToDelete.request_no} เรียบร้อยแล้ว` });
       setDeleteDialogOpen(false);
       setRequestToDelete(null);
@@ -206,7 +210,8 @@ export default function BudgetRequest() {
   const handleEdit = async (editedRequest: DBBudgetRequest) => {
     if (!selectedRequest) return;
     try {
-      await api.updateBudgetRequest(String(selectedRequest.id), editedRequest);
+      const { firestoreService } = await import('@/lib/firestoreService');
+      await firestoreService.updateBudgetRequest(String(selectedRequest.id), editedRequest);
       toast({ title: 'แก้ไขสำเร็จ', description: `แก้ไขคำขอ ${selectedRequest.request_no} เรียบร้อยแล้ว` });
       setEditDialogOpen(false);
       setSelectedRequest(null);
@@ -222,7 +227,8 @@ export default function BudgetRequest() {
     let approvalInfo: ApprovalInfo | null = null;
     if (request.status !== 'PENDING') {
       try {
-        const data = await api.getApprovalByRequestId(String(request.id));
+        const { firestoreService } = await import('@/lib/firestoreService');
+        const data = await firestoreService.getApprovalByRequestId(String(request.id));
         if (data) {
           approvalInfo = {
             approver_name: data.approver_name || 'ไม่ระบุ',
