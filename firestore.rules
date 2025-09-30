@@ -79,7 +79,13 @@ service cloud.firestore {
 
     // App Settings Collection
     match /appSettings/{settingId} {
-      allow read, write: if isAuthenticated();
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    match /app_settings/{settingId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
     }
 
     // Audit Logs Collection

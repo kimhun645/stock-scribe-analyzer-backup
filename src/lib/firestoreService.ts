@@ -92,6 +92,36 @@ export interface Approval {
   updated_at: string;
 }
 
+export interface Settings {
+  id?: string;
+  companyName: string;
+  email: string;
+  phone: string;
+  address: string;
+  currency: 'THB' | 'USD' | 'EUR';
+  lowStockAlert: boolean;
+  emailNotifications: boolean;
+  autoBackup: boolean;
+  approverName: string;
+  approverEmail: string;
+  ccEmails?: string;
+  serverHost: string;
+  serverPort: string;
+  databaseHost: string;
+  databasePort: string;
+  databaseName: string;
+  databaseUser: string;
+  databasePassword: string;
+  sessionTimeout: number;
+  maxLoginAttempts: number;
+  requireTwoFactor: boolean;
+  theme: 'light' | 'dark' | 'system';
+  primaryColor: string;
+  fontSize: 'small' | 'medium' | 'large';
+  created_at?: string;
+  updated_at?: string;
+}
+
 const toISOString = (timestamp: any): string => {
   if (!timestamp) return new Date().toISOString();
   if (timestamp.toDate) {
@@ -468,6 +498,48 @@ export class FirestoreService {
       } as Approval;
     } catch (error) {
       console.error('Error fetching approval:', error);
+      throw error;
+    }
+  }
+
+  static async getSettings(): Promise<Settings | null> {
+    try {
+      const querySnapshot = await getDocs(collection(db, 'appSettings'));
+      if (querySnapshot.empty) {
+        return null;
+      }
+      const doc = querySnapshot.docs[0];
+      return {
+        id: doc.id,
+        ...doc.data(),
+        created_at: toISOString(doc.data().created_at),
+        updated_at: toISOString(doc.data().updated_at)
+      } as Settings;
+    } catch (error) {
+      console.error('Error fetching settings:', error);
+      throw error;
+    }
+  }
+
+  static async saveSettings(settings: Partial<Settings>): Promise<void> {
+    try {
+      const querySnapshot = await getDocs(collection(db, 'appSettings'));
+
+      if (querySnapshot.empty) {
+        await addDoc(collection(db, 'appSettings'), {
+          ...settings,
+          created_at: serverTimestamp(),
+          updated_at: serverTimestamp()
+        });
+      } else {
+        const docRef = doc(db, 'appSettings', querySnapshot.docs[0].id);
+        await updateDoc(docRef, {
+          ...settings,
+          updated_at: serverTimestamp()
+        });
+      }
+    } catch (error) {
+      console.error('Error saving settings:', error);
       throw error;
     }
   }

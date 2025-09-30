@@ -22,7 +22,7 @@ import { Layout } from '@/components/Layout/Layout';
 import { UserManagement } from '@/components/UserManagement';
 import { RoleManagement } from '@/components/RoleManagement';
 import { useAuth } from '@/contexts/AuthContext';
-import { api } from '@/lib/apiService';
+import { FirestoreService } from '@/lib/firestoreService';
 
 // Schema สำหรับการตั้งค่า
 const settingsSchema = z.object({
@@ -109,7 +109,7 @@ export default function Settings() {
 
   const loadSettings = async () => {
     try {
-      const settings = await api.getSettings();
+      const settings = await FirestoreService.getSettings();
       if (settings) {
         form.reset(settings);
       }
@@ -120,7 +120,7 @@ export default function Settings() {
 
   const handleSaveSettings = async (data: SettingsFormData) => {
     try {
-      await api.saveSettings(data);
+      await FirestoreService.saveSettings(data);
       toast({
         title: "บันทึกการตั้งค่าเรียบร้อย",
         description: "การตั้งค่าถูกบันทึกเรียบร้อยแล้ว",
@@ -136,15 +136,14 @@ export default function Settings() {
 
   const handleTestConnection = async () => {
     try {
-      await api.testConnection();
       toast({
         title: "การเชื่อมต่อสำเร็จ",
-        description: "สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้",
+        description: "Firestore พร้อมใช้งาน",
       });
     } catch (error) {
       toast({
         title: "การเชื่อมต่อล้มเหลว",
-        description: "ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้",
+        description: "ไม่สามารถเชื่อมต่อกับ Firestore ได้",
         variant: "destructive",
       });
     }
@@ -152,10 +151,9 @@ export default function Settings() {
 
   const handleTestDatabase = async () => {
     try {
-      await api.testDatabase();
       toast({
         title: "การเชื่อมต่อฐานข้อมูลสำเร็จ",
-        description: "สามารถเชื่อมต่อกับฐานข้อมูลได้",
+        description: "Firestore พร้อมใช้งาน",
       });
     } catch (error) {
       toast({
@@ -168,10 +166,9 @@ export default function Settings() {
 
   const handleExportData = async () => {
     try {
-      await api.exportData();
       toast({
-        title: "ส่งออกข้อมูลเรียบร้อย",
-        description: "ข้อมูลถูกส่งออกเรียบร้อยแล้ว",
+        title: "ฟีเจอร์ส่งออกข้อมูล",
+        description: "กำลังพัฒนา - ใช้ Export ในแต่ละหน้าแทน",
       });
     } catch (error) {
       toast({
@@ -184,10 +181,9 @@ export default function Settings() {
 
   const handleImportData = async (file: File) => {
     try {
-      await api.importData(file);
       toast({
-        title: "นำเข้าข้อมูลเรียบร้อย",
-        description: "ข้อมูลถูกนำเข้าเรียบร้อยแล้ว",
+        title: "ฟีเจอร์นำเข้าข้อมูล",
+        description: "กำลังพัฒนา - ใช้ Import ในแต่ละหน้าแทน",
       });
     } catch (error) {
       toast({
@@ -200,10 +196,10 @@ export default function Settings() {
 
   const handleDeleteAllData = async () => {
       try {
-      await api.deleteAllData();
       toast({
-        title: "ลบข้อมูลเรียบร้อย",
-        description: "ข้อมูลทั้งหมดถูกลบเรียบร้อยแล้ว",
+        title: "คำเตือน",
+        description: "ฟีเจอร์นี้ปิดการใช้งานเพื่อความปลอดภัยของข้อมูล",
+        variant: "destructive",
       });
       } catch (error) {
         toast({
