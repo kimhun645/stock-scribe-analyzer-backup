@@ -155,7 +155,8 @@ export default function Movements() {
   };
 
   // Handle delete movement
-  const handleDeleteMovement = (movementId: number) => {
+  const handleDeleteMovement = (movementOrId: number | Movement) => {
+    const movementId = typeof movementOrId === 'number' ? movementOrId : movementOrId.id;
     const movement = (movements || []).find(m => m && m.id === movementId);
     if (movement) {
       setMovementToDelete(movement);

@@ -170,8 +170,9 @@ export default function Suppliers() {
     setEditDialogOpen(true);
   };
 
-  const handleDeleteSupplier = async (supplierId: string) => {
+  const handleDeleteSupplier = async (supplierOrId: string | Supplier) => {
     try {
+      const supplierId = typeof supplierOrId === 'string' ? supplierOrId : supplierOrId.id;
       const { firestoreService } = await import('@/lib/firestoreService');
       await firestoreService.deleteSupplier(supplierId);
 

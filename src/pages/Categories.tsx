@@ -173,8 +173,9 @@ export default function Categories() {
     setEditDialogOpen(true);
   };
 
-  const handleDeleteCategory = async (categoryId: string) => {
+  const handleDeleteCategory = async (categoryOrId: string | Category) => {
     try {
+      const categoryId = typeof categoryOrId === 'string' ? categoryOrId : categoryOrId.id;
       const productCount = productCounts[categoryId] || 0;
       if (productCount > 0) {
         toast({
