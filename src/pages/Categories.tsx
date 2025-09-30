@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, Search, Edit, Trash2, Pill, BarChart3, TrendingUp, Layers, Package, Filter } from 'lucide-react';
-import { api, type Category } from '@/lib/apiService';
+import { type Category } from '@/lib/firestoreService';
 import { AddCategoryDialog } from '@/components/Dialogs/AddCategoryDialog';
 import { EditCategoryDialog } from '@/components/Dialogs/EditCategoryDialog';
 import { useToast } from '@/hooks/use-toast';
@@ -123,15 +123,16 @@ export default function Categories() {
 
   const handleBulkDelete = async () => {
     try {
+      const { firestoreService } = await import('@/lib/firestoreService');
       for (const categoryId of selectedCategories) {
-        await api.deleteCategory(categoryId);
+        await firestoreService.deleteCategory(categoryId);
       }
-      
+
       toast({
         title: "สำเร็จ",
         description: `ลบหมวดหมู่ ${selectedCategories.length} รายการสำเร็จแล้ว`,
       });
-      
+
       setSelectedCategories([]);
       fetchCategories();
     } catch (error) {
@@ -145,10 +146,10 @@ export default function Categories() {
 
   const fetchCategories = async () => {
     try {
-      const categoriesData = await api.getCategories();
-      const productsData = await api.getProducts();
+      const { firestoreService } = await import('@/lib/firestoreService');
+      const categoriesData = await firestoreService.getCategories();
+      const productsData = await firestoreService.getProducts();
 
-      // Count products per category
       const counts: Record<string, number> = {};
       productsData.forEach(product => {
         counts[product.category_id] = (counts[product.category_id] || 0) + 1;
@@ -174,7 +175,6 @@ export default function Categories() {
 
   const handleDeleteCategory = async (categoryId: string) => {
     try {
-      // Check if category has products
       const productCount = productCounts[categoryId] || 0;
       if (productCount > 0) {
         toast({
@@ -185,7 +185,8 @@ export default function Categories() {
         return;
       }
 
-              await api.deleteCategory(categoryId);
+      const { firestoreService } = await import('@/lib/firestoreService');
+      await firestoreService.deleteCategory(categoryId);
 
       toast({
         title: "สำเร็จ",
