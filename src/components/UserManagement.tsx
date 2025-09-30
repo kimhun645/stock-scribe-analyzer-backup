@@ -46,6 +46,17 @@ export function UserManagement({ currentUserRole }: UserManagementProps) {
 
   const roles = userService.getAllRoles();
 
+  const formatDate = (dateString: string | undefined, formatStr: string): string => {
+    if (!dateString) return 'N/A';
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return 'N/A';
+      return format(date, formatStr, { locale: th });
+    } catch (error) {
+      return 'N/A';
+    }
+  };
+
   useEffect(() => {
     fetchUsers();
   }, []);
@@ -368,9 +379,9 @@ export function UserManagement({ currentUserRole }: UserManagementProps) {
                   </div>
                   <div className="flex items-center gap-2">
                     <div className="text-right text-sm text-gray-500">
-                      <p>สร้าง: {format(new Date(user.createdAt), 'dd/MM/yyyy', { locale: th })}</p>
+                      <p>สร้าง: {formatDate(user.createdAt, 'dd/MM/yyyy')}</p>
                       {user.lastLoginAt && (
-                        <p>เข้าสู่ระบบล่าสุด: {format(new Date(user.lastLoginAt), 'dd/MM/yyyy HH:mm', { locale: th })}</p>
+                        <p>เข้าสู่ระบบล่าสุด: {formatDate(user.lastLoginAt, 'dd/MM/yyyy HH:mm')}</p>
                       )}
                     </div>
                     {hasPermission('users:update') && (
