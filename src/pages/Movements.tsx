@@ -5,7 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { ArrowUp, ArrowDown, Activity, TrendingUp, BarChart3, Filter } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { api, Movement } from '@/lib/apiService';
+import { type Movement } from '@/lib/firestoreService';
 import { AddMovementDialog } from '@/components/Dialogs/AddMovementDialog';
 import { EditMovementDialog } from '@/components/Dialogs/EditMovementDialog';
 import { useBarcodeScanner } from '@/hooks/use-barcode-scanner';
@@ -177,18 +177,17 @@ export default function Movements() {
     if (!movementToDelete) return;
 
     try {
+      const { firestoreService } = await import('@/lib/firestoreService');
       if ((selectedMovements || []).length > 0) {
-        // Bulk delete
-        await Promise.all((selectedMovements || []).filter(id => id).map(id => api.deleteMovement(id)));
-      setSelectedMovements([]);
+        await Promise.all((selectedMovements || []).filter(id => id).map(id => firestoreService.deleteMovement(id)));
+        setSelectedMovements([]);
         toast({
           title: 'ลบสำเร็จ',
           description: `ลบการเคลื่อนไหว ${(selectedMovements || []).length} รายการแล้ว`,
         });
-    } else {
-        // Single delete
+      } else {
         if (movementToDelete && movementToDelete.id) {
-          await api.deleteMovement(movementToDelete.id);
+          await firestoreService.deleteMovement(movementToDelete.id);
           toast({
             title: 'ลบสำเร็จ',
             description: 'ลบการเคลื่อนไหวแล้ว',

@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, Search, Edit, Trash2, Phone, Mail, MapPin, User, CheckCircle, Building2, BarChart3, TrendingUp, Package, Filter } from 'lucide-react';
-import { api, type Supplier } from '@/lib/apiService';
+import { type Supplier } from '@/lib/firestoreService';
 import { AddSupplierDialog } from '@/components/Dialogs/AddSupplierDialog';
 import { EditSupplierDialog } from '@/components/Dialogs/EditSupplierDialog';
 import { useToast } from '@/hooks/use-toast';
@@ -114,8 +114,9 @@ export default function Suppliers() {
 
   const handleBulkDelete = async () => {
     try {
+      const { firestoreService } = await import('@/lib/firestoreService');
       for (const supplierId of selectedSuppliers) {
-        await api.deleteSupplier(supplierId);
+        await firestoreService.deleteSupplier(supplierId);
       }
       
       toast({
@@ -142,10 +143,10 @@ export default function Suppliers() {
 
   const fetchSuppliers = async () => {
     try {
-      const suppliersData = await api.getSuppliers();
-      const productsData = await api.getProducts();
+      const { firestoreService } = await import('@/lib/firestoreService');
+      const suppliersData = await firestoreService.getSuppliers();
+      const productsData = await firestoreService.getProducts();
 
-      // Count products per supplier
       const counts: Record<string, number> = {};
       productsData.forEach(product => {
         counts[product.supplier_id] = (counts[product.supplier_id] || 0) + 1;
@@ -171,7 +172,8 @@ export default function Suppliers() {
 
   const handleDeleteSupplier = async (supplierId: string) => {
     try {
-              await api.deleteSupplier(supplierId);
+      const { firestoreService } = await import('@/lib/firestoreService');
+      await firestoreService.deleteSupplier(supplierId);
 
       toast({
         title: "สำเร็จ",
