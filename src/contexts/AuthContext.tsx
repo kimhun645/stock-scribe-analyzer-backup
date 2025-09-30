@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState, ReactNode } from
 import { User as FirebaseUser } from 'firebase/auth';
 import { userService, User } from '@/lib/userService';
 import { auth } from '@/lib/firebase';
+import { auth as apiAuth } from '@/lib/apiService';
 
 interface AuthContextType {
   currentUser: User | null;
@@ -37,6 +38,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
       console.log('Auth state changed:', user?.email);
       if (user) {
         setFirebaseUser(user);
+
+        // Get Firebase ID Token and set it for API service
+        try {
+          const idToken = await user.getIdToken();
+          console.log('🔐 Setting Firebase ID Token for API service');
+          apiAuth.setFirebaseIdToken(idToken);
+        } catch (tokenError) {
+          console.error('Failed to get Firebase ID Token:', tokenError);
+        }
+
         try {
           const userData = await userService.getUserById(user.uid);
           console.log('User data loaded:', userData);
@@ -75,6 +86,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         }
       } else {
         console.log('User logged out');
+        apiAuth.setFirebaseIdToken(null);
         setCurrentUser(null);
         setFirebaseUser(null);
       }
@@ -104,7 +116,20 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const user = await userService.signIn(email, password);
       console.log('Sign in successful:', user);
       setCurrentUser(user);
-      setFirebaseUser(await userService.getCurrentUser());
+
+      const firebaseUser = await userService.getCurrentUser();
+      setFirebaseUser(firebaseUser);
+
+      // Get and set Firebase ID Token
+      if (firebaseUser) {
+        try {
+          const idToken = await firebaseUser.getIdToken();
+          console.log('🔐 Setting Firebase ID Token after sign in');
+          apiAuth.setFirebaseIdToken(idToken);
+        } catch (tokenError) {
+          console.error('Failed to get Firebase ID Token after sign in:', tokenError);
+        }
+      }
     } catch (error: any) {
       console.error('Sign in error:', error);
       throw error;

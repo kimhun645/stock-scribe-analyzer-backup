@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test Backend Connection - Stock Scribe</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      min-height: 100vh;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      padding: 20px;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      background: white;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+    }
+    h1 {
+      color: #333;
+      margin-bottom: 10px;
+    }
+    .subtitle {
+      color: #666;
+      margin-bottom: 30px;
+    }
+    .section {
+      margin-bottom: 30px;
+      padding: 20px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+    }
+    .section h2 {
+      color: #667eea;
+      margin-bottom: 15px;
+      font-size: 18px;
+    }
+    .info {
+      background: #f5f5f5;
+      padding: 12px;
+      border-radius: 6px;
+      margin-bottom: 15px;
+      font-family: monospace;
+      font-size: 14px;
+    }
+    button {
+      padding: 12px 24px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-right: 10px;
+      margin-bottom: 10px;
+    }
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+    }
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    .result {
+      margin-top: 15px;
+      padding: 15px;
+      border-radius: 6px;
+      white-space: pre-wrap;
+      font-family: monospace;
+      font-size: 13px;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+    .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+    .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+    .info-box { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+    .status {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 600;
+      margin-left: 10px;
+    }
+    .status.online { background: #d4edda; color: #155724; }
+    .status.offline { background: #f8d7da; color: #721c24; }
+    .status.checking { background: #fff3cd; color: #856404; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Test Backend Connection</h1>
+    <p class="subtitle">ทดสอบการเชื่อมต่อระหว่าง Frontend, Backend และ Firestore</p>
+
+    <!-- Backend URL Info -->
+    <div class="section">
+      <h2>📡 Backend Configuration</h2>
+      <div class="info">
+        <strong>Backend URL:</strong> https://stock-scribe-backend-601202807478.asia-southeast1.run.app<br>
+        <strong>API Endpoint:</strong> https://stock-scribe-backend-601202807478.asia-southeast1.run.app/api<br>
+        <strong>Status:</strong> <span id="backendStatus" class="status checking">Checking...</span>
+      </div>
+    </div>
+
+    <!-- Test Buttons -->
+    <div class="section">
+      <h2>🔧 Test Actions</h2>
+      <button onclick="testBackendHealth()">Test Backend Health</button>
+      <button onclick="testFirebaseConfig()">Test Firebase Config</button>
+      <button onclick="testFirestoreConnection()">Test Firestore Connection</button>
+      <button onclick="testApiEndpoints()">Test API Endpoints</button>
+      <button onclick="testFullFlow()">Test Full Flow</button>
+      <button onclick="clearResults()">Clear Results</button>
+    </div>
+
+    <!-- Results -->
+    <div class="section">
+      <h2>📊 Test Results</h2>
+      <div id="results"></div>
+    </div>
+
+    <!-- Firestore Status -->
+    <div class="section">
+      <h2>🔥 Firestore Status</h2>
+      <div class="info">
+        <strong>Project ID:</strong> stock-6e930<br>
+        <strong>Status:</strong> <span id="firestoreStatus" class="status checking">Checking...</span>
+      </div>
+      <div id="firestoreResults"></div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+    import { getFirestore, collection, getDocs, doc, setDoc, deleteDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+
+    const BACKEND_URL = 'https://stock-scribe-backend-601202807478.asia-southeast1.run.app';
+    const API_URL = `${BACKEND_URL}/api`;
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCsXLEXI4e_3hoK_Aef6EIOwygxTJGtLek",
+      authDomain: "stock-6e930.firebaseapp.com",
+      projectId: "stock-6e930",
+      storageBucket: "stock-6e930.firebasestorage.app",
+      messagingSenderId: "1067364434675",
+      appId: "1:1067364434675:web:453eed567f011715586d86"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    function addResult(message, type = 'info') {
+      const results = document.getElementById('results');
+      const div = document.createElement('div');
+      div.className = `result ${type}`;
+      div.textContent = message;
+      results.appendChild(div);
+      results.scrollTop = results.scrollHeight;
+    }
+
+    function clearResults() {
+      document.getElementById('results').innerHTML = '';
+      document.getElementById('firestoreResults').innerHTML = '';
+    }
+
+    window.testBackendHealth = async function() {
+      addResult('Testing backend health...', 'info-box');
+      try {
+        const response = await fetch(`${BACKEND_URL}/health`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          addResult(`✓ Backend is online!\n${JSON.stringify(data, null, 2)}`, 'success');
+          document.getElementById('backendStatus').textContent = 'Online';
+          document.getElementById('backendStatus').className = 'status online';
+        } else {
+          throw new Error(`Status: ${response.status}`);
+        }
+      } catch (error) {
+        addResult(`✗ Backend health check failed: ${error.message}`, 'error');
+        document.getElementById('backendStatus').textContent = 'Offline';
+        document.getElementById('backendStatus').className = 'status offline';
+      }
+    };
+
+    window.testFirebaseConfig = function() {
+      addResult('Testing Firebase configuration...', 'info-box');
+      try {
+        addResult(`✓ Firebase initialized successfully!\nProject ID: ${firebaseConfig.projectId}`, 'success');
+      } catch (error) {
+        addResult(`✗ Firebase config error: ${error.message}`, 'error');
+      }
+    };
+
+    window.testFirestoreConnection = async function() {
+      addResult('Testing Firestore connection...', 'info-box');
+      try {
+        const testDocRef = doc(db, 'test_connection', 'test_' + Date.now());
+        await setDoc(testDocRef, {
+          message: 'Test connection',
+          timestamp: new Date().toISOString()
+        });
+
+        const usersRef = collection(db, 'users');
+        const snapshot = await getDocs(usersRef);
+
+        await deleteDoc(testDocRef);
+
+        addResult(`✓ Firestore connection successful!\nFound ${snapshot.size} users in database`, 'success');
+        document.getElementById('firestoreStatus').textContent = 'Connected';
+        document.getElementById('firestoreStatus').className = 'status online';
+
+        const firestoreResults = document.getElementById('firestoreResults');
+        firestoreResults.innerHTML = '<div class="result success">Collections accessible: users</div>';
+
+      } catch (error) {
+        addResult(`✗ Firestore connection failed: ${error.message}`, 'error');
+        document.getElementById('firestoreStatus').textContent = 'Disconnected';
+        document.getElementById('firestoreStatus').className = 'status offline';
+      }
+    };
+
+    window.testApiEndpoints = async function() {
+      addResult('Testing API endpoints...', 'info-box');
+
+      const endpoints = [
+        { path: '/products', method: 'GET' },
+        { path: '/categories', method: 'GET' },
+        { path: '/suppliers', method: 'GET' }
+      ];
+
+      for (const endpoint of endpoints) {
+        try {
+          const response = await fetch(`${API_URL}${endpoint.path}`, {
+            method: endpoint.method,
+            headers: { 'Content-Type': 'application/json' }
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            addResult(`✓ ${endpoint.method} ${endpoint.path}: ${data.length || 0} items`, 'success');
+          } else {
+            addResult(`⚠ ${endpoint.method} ${endpoint.path}: Status ${response.status}`, 'error');
+          }
+        } catch (error) {
+          addResult(`✗ ${endpoint.method} ${endpoint.path}: ${error.message}`, 'error');
+        }
+      }
+    };
+
+    window.testFullFlow = async function() {
+      clearResults();
+      addResult('Running full system test...', 'info-box');
+
+      await testBackendHealth();
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      testFirebaseConfig();
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      await testFirestoreConnection();
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      await testApiEndpoints();
+
+      addResult('\n✓ Full system test completed!', 'success');
+    };
+
+    // Auto-run on page load
+    window.addEventListener('load', () => {
+      setTimeout(testBackendHealth, 500);
+      setTimeout(testFirestoreConnection, 1000);
+    });
+  </script>
+</body>
+</html>
