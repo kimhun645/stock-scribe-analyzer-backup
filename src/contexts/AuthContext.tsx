@@ -5,13 +5,18 @@ import { auth } from '@/lib/firebase';
 
 interface AuthContextType {
   currentUser: User | null;
+  user: User | null;
   firebaseUser: FirebaseUser | null;
   isLoading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
+  logout: () => Promise<void>;
   hasPermission: (permission: string) => boolean;
   hasRole: (role: string) => boolean;
   refreshUser: () => Promise<void>;
+  sessionWarning: boolean;
+  timeRemaining: number;
+  extendSession: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -24,6 +29,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [sessionWarning, setSessionWarning] = useState(false);
+  const [timeRemaining, setTimeRemaining] = useState(0);
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
@@ -106,12 +113,22 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const signOut = async () => {
     try {
+      console.log('Signing out...');
       await userService.signOut();
       setCurrentUser(null);
       setFirebaseUser(null);
+      console.log('Signed out successfully');
     } catch (error) {
+      console.error('Sign out error:', error);
       throw error;
     }
+  };
+
+  const logout = signOut;
+
+  const extendSession = () => {
+    setSessionWarning(false);
+    setTimeRemaining(0);
   };
 
   const hasPermission = (permission: string): boolean => {
@@ -132,13 +149,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const value: AuthContextType = {
     currentUser,
+    user: currentUser,
     firebaseUser,
     isLoading,
     signIn,
     signOut,
+    logout,
     hasPermission,
     hasRole,
     refreshUser,
+    sessionWarning,
+    timeRemaining,
+    extendSession,
   };
 
   return (

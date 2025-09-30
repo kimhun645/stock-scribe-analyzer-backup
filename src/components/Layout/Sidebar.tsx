@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigation } from '@/contexts/NavigationContext';
@@ -36,10 +36,22 @@ const navigation = [
 
 export function Sidebar({ onLogout }: SidebarProps) {
   const location = useLocation();
+  const navigate = useNavigate();
   const { logout, user } = useAuth();
   const { navigateTo, isNavigating } = useNavigation();
 
-  const handleLogout = onLogout || logout;
+  const handleLogout = async () => {
+    try {
+      if (onLogout) {
+        await onLogout();
+      } else {
+        await logout();
+      }
+      navigate('/login', { replace: true });
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  };
 
   const handleNavigation = async (href: string) => {
     if (isNavigating) return; // Prevent navigation if already navigating
@@ -124,9 +136,9 @@ export function Sidebar({ onLogout }: SidebarProps) {
                 <div className="inline-block h-9 w-9 rounded-full bg-white/20"></div>
                 <div className="hidden lg:block ml-3">
                   <p className="text-sm font-medium text-white drop-shadow-sm">
-                    {user?.username || 'ผู้ดูแลระบบ'}
+                    {user?.displayName || user?.email || 'ผู้ดูแลระบบ'}
                   </p>
-                  <p className="text-xs text-white/80">ผู้จัดการสต็อก</p>
+                  <p className="text-xs text-white/80">{user?.role === 'admin' ? 'ผู้ดูแลระบบ' : 'ผู้จัดการสต็อก'}</p>
                 </div>
               </div>
               <button
