@@ -255,15 +255,20 @@ class UserService {
   // Get all users
   async getUsers(): Promise<User[]> {
     try {
-      const usersQuery = query(
-        collection(this.db, 'users'),
-        orderBy('createdAt', 'desc')
-      );
-      const querySnapshot = await getDocs(usersQuery);
-      
-      return querySnapshot.docs.map(doc => doc.data() as User);
+      const usersCollection = collection(this.db, 'users');
+      const querySnapshot = await getDocs(usersCollection);
+
+      const users = querySnapshot.docs.map(doc => doc.data() as User);
+
+      // Sort in memory instead of using Firestore orderBy
+      return users.sort((a, b) => {
+        const dateA = new Date(a.createdAt || 0).getTime();
+        const dateB = new Date(b.createdAt || 0).getTime();
+        return dateB - dateA;
+      });
     } catch (error: any) {
-      throw new Error('ไม่สามารถดึงข้อมูลผู้ใช้ได้');
+      console.error('Error fetching users:', error);
+      throw new Error('ไม่สามารถดึงข้อมูลผู้ใช้ได้: ' + error.message);
     }
   }
 
