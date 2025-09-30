@@ -11,7 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { User, Bell, Database, Shield, Palette, Upload, Download, Trash2, Settings as SettingsIcon, Package, Key, Eye, EyeOff, CreditCard, Plus, FileEdit as Edit, Trash, RefreshCw, CheckCircle, AlertTriangle, Server, Mail, Globe, Lock, Users, FileText, BarChart3, Crown, UserCheck, UserX, LogOut } from 'lucide-react';
+import { User, Bell, Shield, Palette, Upload, Download, Trash2, Settings as SettingsIcon, Package, Key, CreditCard, Plus, FileEdit as Edit, Trash, CheckCircle, AlertTriangle, Mail, Globe, Lock, Users, FileText, BarChart3, Crown, UserCheck, UserX, LogOut } from 'lucide-react';
 import { Layout } from '@/components/Layout/Layout';
 import { UserManagement } from '@/components/UserManagement';
 import { RoleManagement } from '@/components/RoleManagement';
@@ -36,18 +36,7 @@ const settingsSchema = z.object({
   approverName: z.string().min(1, 'ชื่อผู้อนุมัติจำเป็นต้องระบุ'),
   approverEmail: z.string().email('รูปแบบอีเมลผู้อนุมัติไม่ถูกต้อง'),
   ccEmails: z.string().optional(),
-  
-  // การตั้งค่าเซิร์ฟเวอร์
-  serverHost: z.string().min(1, 'Host เซิร์ฟเวอร์จำเป็นต้องระบุ'),
-  serverPort: z.string().min(1, 'Port เซิร์ฟเวอร์จำเป็นต้องระบุ'),
-  
-  // การตั้งค่าฐานข้อมูล
-  databaseHost: z.string().min(1, 'Host ฐานข้อมูลจำเป็นต้องระบุ'),
-  databasePort: z.string().min(1, 'Port ฐานข้อมูลจำเป็นต้องระบุ'),
-  databaseName: z.string().min(1, 'ชื่อฐานข้อมูลจำเป็นต้องระบุ'),
-  databaseUser: z.string().min(1, 'ผู้ใช้ฐานข้อมูลจำเป็นต้องระบุ'),
-  databasePassword: z.string().min(1, 'รหัสผ่านฐานข้อมูลจำเป็นต้องระบุ'),
-  
+
   // การตั้งค่าการรักษาความปลอดภัย
   sessionTimeout: z.number().min(5, 'เวลาหมดอายุต้องไม่น้อยกว่า 5 นาที'),
   maxLoginAttempts: z.number().min(3, 'จำนวนครั้งที่พยายามเข้าสู่ระบบต้องไม่น้อยกว่า 3'),
@@ -65,7 +54,6 @@ export default function Settings() {
   const { toast } = useToast();
   const { currentUser, isLoading, signOut, hasPermission } = useAuth();
   const [activeTab, setActiveTab] = useState('general');
-  const [showPassword, setShowPassword] = useState(false);
 
   const form = useForm<SettingsFormData>({
     resolver: zodResolver(settingsSchema),
@@ -81,13 +69,6 @@ export default function Settings() {
       approverName: '',
       approverEmail: '',
       ccEmails: '',
-          serverHost: 'localhost',
-          serverPort: '3000',
-          databaseHost: 'localhost',
-          databasePort: '5432',
-      databaseName: 'material_management',
-          databaseUser: 'postgres',
-      databasePassword: '',
       sessionTimeout: 30,
       maxLoginAttempts: 5,
       requireTwoFactor: false,
@@ -128,35 +109,6 @@ export default function Settings() {
     }
   };
 
-  const handleTestConnection = async () => {
-    try {
-      toast({
-        title: "การเชื่อมต่อสำเร็จ",
-        description: "Firestore พร้อมใช้งาน",
-      });
-    } catch (error) {
-      toast({
-        title: "การเชื่อมต่อล้มเหลว",
-        description: "ไม่สามารถเชื่อมต่อกับ Firestore ได้",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleTestDatabase = async () => {
-    try {
-      toast({
-        title: "การเชื่อมต่อฐานข้อมูลสำเร็จ",
-        description: "Firestore พร้อมใช้งาน",
-      });
-    } catch (error) {
-      toast({
-        title: "การเชื่อมต่อฐานข้อมูลล้มเหลว",
-        description: "ไม่สามารถเชื่อมต่อกับฐานข้อมูลได้",
-        variant: "destructive",
-      });
-    }
-  };
 
   const handleExportData = async () => {
     try {
@@ -377,153 +329,7 @@ export default function Settings() {
                 />
               </CardContent>
             </Card>
-            
-                  {/* Server Settings */}
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <Server className="h-5 w-5" />
-                   การตั้งค่าเซิร์ฟเวอร์
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                     name="serverHost"
-                    render={({ field }) => (
-                      <FormItem>
-                              <FormLabel>Host</FormLabel>
-                         <FormControl>
-                           <Input {...field} placeholder="localhost" />
-                         </FormControl>
-                         <FormMessage />
-                       </FormItem>
-                     )}
-                   />
-                   <FormField
-                     control={form.control}
-                     name="serverPort"
-                     render={({ field }) => (
-                       <FormItem>
-                              <FormLabel>Port</FormLabel>
-                         <FormControl>
-                           <Input {...field} placeholder="3000" />
-                         </FormControl>
-                         <FormMessage />
-                       </FormItem>
-                     )}
-                   />
-                 </div>
-                      <Button type="button" variant="outline" onClick={handleTestConnection}>
-                        <RefreshCw className="h-4 w-4 mr-2" />
-                        ทดสอบการเชื่อมต่อ
-                   </Button>
-               </CardContent>
-             </Card>
 
-                  {/* Database Settings */}
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <Database className="h-5 w-5" />
-                   การตั้งค่าฐานข้อมูล
-                 </CardTitle>
-               </CardHeader>
-               <CardContent className="space-y-4">
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                   <FormField
-                     control={form.control}
-                     name="databaseHost"
-                     render={({ field }) => (
-                       <FormItem>
-                              <FormLabel>Host</FormLabel>
-                         <FormControl>
-                           <Input {...field} placeholder="localhost" />
-                         </FormControl>
-                         <FormMessage />
-                       </FormItem>
-                     )}
-                   />
-                   <FormField
-                     control={form.control}
-                     name="databasePort"
-                     render={({ field }) => (
-                       <FormItem>
-                              <FormLabel>Port</FormLabel>
-                         <FormControl>
-                           <Input {...field} placeholder="5432" />
-                         </FormControl>
-                         <FormMessage />
-                       </FormItem>
-                     )}
-                   />
-                   <FormField
-                     control={form.control}
-                     name="databaseName"
-                     render={({ field }) => (
-                       <FormItem>
-                         <FormLabel>ชื่อฐานข้อมูล</FormLabel>
-                         <FormControl>
-                                <Input {...field} placeholder="material_management" />
-                         </FormControl>
-                         <FormMessage />
-                       </FormItem>
-                     )}
-                   />
-                   <FormField
-                     control={form.control}
-                     name="databaseUser"
-                     render={({ field }) => (
-                       <FormItem>
-                              <FormLabel>ผู้ใช้</FormLabel>
-                         <FormControl>
-                           <Input {...field} placeholder="postgres" />
-                         </FormControl>
-                         <FormMessage />
-                       </FormItem>
-                     )}
-                   />
-                   <FormField
-                     control={form.control}
-                          name="databasePassword"
-                     render={({ field }) => (
-                       <FormItem>
-                              <FormLabel>รหัสผ่าน</FormLabel>
-                          <FormControl>
-                                <div className="relative">
-                                  <Input
-                                    {...field}
-                                    type={showPassword ? 'text' : 'password'}
-                                    placeholder="รหัสผ่าน"
-                                  />
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                                    onClick={() => setShowPassword(!showPassword)}
-                                  >
-                                    {showPassword ? (
-                                      <EyeOff className="h-4 w-4" />
-                                    ) : (
-                                      <Eye className="h-4 w-4" />
-                                    )}
-                                  </Button>
-                </div>
-                         </FormControl>
-                         <FormMessage />
-                       </FormItem>
-                     )}
-                   />
-                 </div>
-                      <Button type="button" variant="outline" onClick={handleTestDatabase}>
-                        <RefreshCw className="h-4 w-4 mr-2" />
-                        ทดสอบการเชื่อมต่อฐานข้อมูล
-                   </Button>
-              </CardContent>
-            </Card>
-            
                   {/* Save Button */}
                   <div className="flex justify-end">
                     <Button type="submit" className="bg-gradient-to-r from-blue-500 to-indigo-600">

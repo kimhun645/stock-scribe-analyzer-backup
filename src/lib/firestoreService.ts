@@ -105,13 +105,6 @@ export interface Settings {
   approverName: string;
   approverEmail: string;
   ccEmails?: string;
-  serverHost: string;
-  serverPort: string;
-  databaseHost: string;
-  databasePort: string;
-  databaseName: string;
-  databaseUser: string;
-  databasePassword: string;
   sessionTimeout: number;
   maxLoginAttempts: number;
   requireTwoFactor: boolean;
