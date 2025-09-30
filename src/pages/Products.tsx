@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Search, Edit, Trash2, Package, BarChart3, TrendingUp, AlertTriangle, Eye, Filter, RefreshCw, Download, Upload, Grid3X3, List, CheckSquare, Square, MoreVertical, Copy, Star, Heart, Tag, DollarSign, MapPin, Building2 } from 'lucide-react';
+import { Plus, Search, FileEdit as Edit, Trash2, Package, BarChart3, TrendingUp, AlertTriangle, Eye, Filter, RefreshCw, Download, Upload, Grid3x3 as Grid3X3, List, CheckSquare, Square, MoreVertical, Copy, Star, Heart, Tag, DollarSign, MapPin, Building2 } from 'lucide-react';
 import { api, type Product } from '@/lib/apiService';
 import { AddProductDialog } from '@/components/Dialogs/AddProductDialog';
 import { EditProductDialog } from '@/components/Dialogs/EditProductDialog';
