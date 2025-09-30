@@ -9,13 +9,13 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 
 export default function Login() {
-  const [username, setUsername] = useState('admin');
+  const [email, setEmail] = useState('admin@stockscribe.com');
   const [password, setPassword] = useState('admin123');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const { login, isAuthenticated } = useAuth();
+  const { signIn, currentUser, isLoading } = useAuth();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -23,14 +23,17 @@ export default function Login() {
     setLoading(true);
 
     try {
-      const success = await login(username, password);
-      if (success) {
-        navigate('/dashboard');
+      await signIn(email, password);
+      navigate('/dashboard');
+    } catch (error: any) {
+      console.error('Login error:', error);
+      if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
+        setError('อีเมลหรือรหัสผ่านไม่ถูกต้อง');
+      } else if (error.code === 'auth/too-many-requests') {
+        setError('มีการพยายามเข้าสู่ระบบมากเกินไป กรุณาลองใหม่อีกครั้งในภายหลัง');
       } else {
-        setError('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
+        setError('เกิดข้อผิดพลาดในการเข้าสู่ระบบ: ' + (error.message || 'ไม่ทราบสาเหตุ'));
       }
-    } catch (error) {
-      setError('เกิดข้อผิดพลาดในการเข้าสู่ระบบ');
     } finally {
       setLoading(false);
     }
@@ -38,10 +41,10 @@ export default function Login() {
 
   // Redirect ถ้า login แล้ว
   React.useEffect(() => {
-    if (isAuthenticated) {
+    if (!isLoading && currentUser) {
       navigate('/dashboard');
     }
-  }, [isAuthenticated, navigate]);
+  }, [currentUser, isLoading, navigate]);
 
   return (
     <div className="min-h-screen bg-gradient-hero flex items-center justify-center p-4">
@@ -74,19 +77,19 @@ export default function Login() {
           
           <CardContent className="space-y-6">
             <form onSubmit={handleLogin} className="space-y-4">
-              {/* Username Field */}
+              {/* Email Field */}
               <div className="space-y-2">
-                <Label htmlFor="username" className="text-sm font-medium text-gray-700">
-                  ชื่อผู้ใช้
+                <Label htmlFor="email" className="text-sm font-medium text-gray-700">
+                  อีเมล
                 </Label>
                 <div className="relative">
                   <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                   <Input
-                    id="username"
-                    type="text"
-                    placeholder="กรอกชื่อผู้ใช้"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
+                    id="email"
+                    type="email"
+                    placeholder="กรอกอีเมล"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
                     className="pl-10 bg-white/70 border-gray-200 focus:border-blue-500 focus:ring-blue-500"
                     required
                     disabled={loading}
@@ -155,7 +158,7 @@ export default function Login() {
             <div className="text-center">
               <p className="text-xs text-gray-500 mb-2">ข้อมูลทดสอบ:</p>
               <div className="bg-gray-50 rounded-lg p-3 text-xs text-gray-600 space-y-1">
-                <p><span className="font-medium">Username:</span> admin</p>
+                <p><span className="font-medium">Email:</span> admin@stockscribe.com</p>
                 <p><span className="font-medium">Password:</span> admin123</p>
               </div>
             </div>
