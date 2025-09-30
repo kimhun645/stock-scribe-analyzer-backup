@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Search, Edit, Trash2, Phone, Mail, MapPin, User, CheckCircle, Building2, BarChart3, TrendingUp, Package, Filter } from 'lucide-react';
+import { Plus, Search, FileEdit as Edit, Trash2, Phone, Mail, MapPin, User, CheckCircle, Building2, BarChart3, TrendingUp, Package, Filter } from 'lucide-react';
 import { type Supplier } from '@/lib/firestoreService';
 import { AddSupplierDialog } from '@/components/Dialogs/AddSupplierDialog';
 import { EditSupplierDialog } from '@/components/Dialogs/EditSupplierDialog';
