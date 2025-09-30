@@ -21,7 +21,7 @@ export function LoginForm({ onLoginSuccess }: LoginFormProps) {
   const [isAnimating, setIsAnimating] = useState(false);
   const [particles, setParticles] = useState<Array<{id: number, x: number, y: number, delay: number}>>([]);
   const cardRef = useRef<HTMLDivElement>(null);
-  const { login, register } = useAuth();
+  const { signIn } = useAuth();
 
   // Generate floating particles
   useEffect(() => {
@@ -49,26 +49,54 @@ export function LoginForm({ onLoginSuccess }: LoginFormProps) {
     setError('');
 
     try {
-      let success = false;
       if (isRegisterMode) {
-        success = await register(email, password, displayName);
-        if (success) {
-          setError('');
-          setIsRegisterMode(false);
-          setDisplayName('');
-        } else {
-          setError('Registration failed. Please try again.');
-        }
+        // Import Firebase auth for registration
+        const { createUserWithEmailAndPassword, updateProfile } = await import('firebase/auth');
+        const { auth } = await import('@/lib/firebase');
+        const { doc, setDoc } = await import('firebase/firestore');
+        const { db } = await import('@/lib/firebase');
+
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        await updateProfile(userCredential.user, { displayName });
+
+        // Create user document in Firestore
+        await setDoc(doc(db, 'users', userCredential.user.uid), {
+          id: userCredential.user.uid,
+          email: userCredential.user.email,
+          displayName: displayName,
+          role: 'user',
+          isActive: true,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          lastLoginAt: new Date().toISOString()
+        });
+
+        setError('');
+        setIsRegisterMode(false);
+        setDisplayName('');
+        setEmail('');
+        setPassword('');
       } else {
-        success = await login(email, password);
-        if (success) {
-          onLoginSuccess();
-        } else {
-          setError('Login failed. Please check your credentials.');
-        }
+        await signIn(email, password);
+        onLoginSuccess();
       }
     } catch (error: any) {
-      setError(error.message || 'Authentication failed. Please try again.');
+      console.error('Auth error:', error);
+      if (error.code === 'auth/user-not-found') {
+        setError('ไม่พบผู้ใช้นี้ในระบบ');
+      } else if (error.code === 'auth/wrong-password') {
+        setError('รหัสผ่านไม่ถูกต้อง');
+      } else if (error.code === 'auth/invalid-email') {
+        setError('รูปแบบอีเมลไม่ถูกต้อง');
+      } else if (error.code === 'auth/email-already-in-use') {
+        setError('อีเมลนี้ถูกใช้งานแล้ว');
+      } else if (error.code === 'auth/weak-password') {
+        setError('รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร');
+      } else if (error.code === 'auth/invalid-credential') {
+        setError('อีเมลหรือรหัสผ่านไม่ถูกต้อง');
+      } else {
+        setError(error.message || 'เกิดข้อผิดพลาดในการเข้าสู่ระบบ');
+      }
     } finally {
       setLoading(false);
     }
