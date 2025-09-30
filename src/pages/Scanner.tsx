@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ScanLine, Search, Package, AlertCircle, RefreshCw, Clock, CheckCircle } from 'lucide-react';
-import { api, type Product } from '@/lib/apiService';
+import { type Product } from '@/lib/firestoreService';
 import { useToast } from '@/hooks/use-toast';
 import { useBarcodeScanner } from '@/hooks/use-barcode-scanner';
 import { BarcodeScannerIndicator } from '@/components/ui/barcode-scanner-indicator';
@@ -39,13 +39,9 @@ export default function Scanner() {
 
   const searchProductByBarcode = async (barcodeValue: string) => {
     try {
-      const product = await api.getProductByBarcode(barcodeValue);
-      if (!product) {
-        // Try searching by SKU if barcode not found
-                  const products = await api.getProducts();
-        return products.find(p => p.sku === barcodeValue) || null;
-      }
-      return product;
+      const { firestoreService } = await import('@/lib/firestoreService');
+      const products = await firestoreService.getProducts();
+      return products.find(p => p.barcode === barcodeValue || p.sku === barcodeValue) || null;
     } catch (error) {
       console.error('Error searching product:', error);
       return null;

@@ -40,7 +40,7 @@ import {
   Info,
   Zap
 } from 'lucide-react';
-import { api, type BudgetRequest as DBBudgetRequest, type Approval as ApprovalInfo } from '@/lib/apiService';
+import { type BudgetRequest as DBBudgetRequest, type Approval as ApprovalInfo } from '@/lib/firestoreService';
 import { Layout } from '@/components/Layout/Layout';
 import { PageHeader } from '@/components/Layout/PageHeader';
 import { useToast } from '@/hooks/use-toast';
@@ -232,8 +232,9 @@ const ApprovalPage: React.FC = () => {
     
     try {
       setIsLoading(true);
+      const { firestoreService } = await import('@/lib/firestoreService');
       for (const requestId of selectedRequests) {
-        await api.updateBudgetRequest(requestId, {
+        await firestoreService.updateBudgetRequest(requestId, {
           status: 'APPROVED',
           approved_by: 'ผู้บริหาร',
           approved_at: new Date().toISOString()
@@ -264,8 +265,9 @@ const ApprovalPage: React.FC = () => {
     
     try {
       setIsLoading(true);
+      const { firestoreService } = await import('@/lib/firestoreService');
       for (const requestId of selectedRequests) {
-        await api.updateBudgetRequest(requestId, {
+        await firestoreService.updateBudgetRequest(requestId, {
           status: 'REJECTED',
           approved_by: 'ผู้บริหาร',
           approved_at: new Date().toISOString()
@@ -450,7 +452,8 @@ const ApprovalPage: React.FC = () => {
   const fetchPendingRequests = async () => {
     try {
       setIsLoading(true);
-      const requests = await api.getBudgetRequests();
+      const { firestoreService } = await import('@/lib/firestoreService');
+      const requests = await firestoreService.getBudgetRequests();
       setAllRequests(requests);
       const pending = requests.filter(req => req.status === 'PENDING');
       setPendingRequests(pending);
@@ -471,14 +474,15 @@ const ApprovalPage: React.FC = () => {
     try {
       setIsLoading(true);
       console.log('Fetching budget request with ID:', id);
-      const request = await api.getBudgetRequestById(id);
+      const { firestoreService } = await import('@/lib/firestoreService');
+      const request = await firestoreService.getBudgetRequest(id);
       console.log('Received budget request:', request);
       setBudgetRequest(request);
       
       // Fetch approval info if not pending
       if (request.status !== 'PENDING') {
         try {
-          const approval = await api.getApprovalByRequestId(request.id.toString());
+          const approval = await firestoreService.getApprovalByRequestId(request.id.toString());
           setApprovalInfo(approval);
         } catch (err) {
           console.log('No approval info found or error:', err);
@@ -705,14 +709,15 @@ ${remark ? `หมายเหตุจากผู้อนุมัติ: ${r
       }
 
       // Update budget request with approval info
-      await api.updateBudgetRequest(budgetRequest.id.toString(), {
+      const { firestoreService } = await import('@/lib/firestoreService');
+      await firestoreService.updateBudgetRequest(budgetRequest.id.toString(), {
         ...budgetRequest,
         status: 'APPROVED',
         approved_by: approverName,
         approved_at: new Date().toISOString()
       });
 
-      await api.createApproval({
+      await firestoreService.createApproval({
         request_id: parseInt(budgetRequest.id.toString()),
         approver_name: approverName,
         decision: 'APPROVED',
@@ -755,14 +760,15 @@ ${remark ? `หมายเหตุจากผู้อนุมัติ: ${r
       }
 
       // Update budget request with rejection info
-      await api.updateBudgetRequest(budgetRequest.id.toString(), {
+      const { firestoreService } = await import('@/lib/firestoreService');
+      await firestoreService.updateBudgetRequest(budgetRequest.id.toString(), {
         ...budgetRequest,
         status: 'REJECTED',
         approved_by: approverName,
         approved_at: new Date().toISOString()
       });
 
-      await api.createApproval({
+      await firestoreService.createApproval({
         request_id: parseInt(budgetRequest.id.toString()),
         approver_name: approverName,
         decision: 'REJECTED',
@@ -790,7 +796,8 @@ ${remark ? `หมายเหตุจากผู้อนุมัติ: ${r
     let approvalInfo: ApprovalInfo | null = null;
     if (request.status !== 'PENDING') {
         try {
-          const data = await api.getApprovalByRequestId(request.id.toString());
+          const { firestoreService } = await import('@/lib/firestoreService');
+          const data = await firestoreService.getApprovalByRequestId(request.id.toString());
           approvalInfo = data;
         } catch (err) {
           console.error('Error fetching approval data for print:', err);
