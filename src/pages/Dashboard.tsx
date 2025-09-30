@@ -262,12 +262,14 @@ export default function Dashboard() {
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
-      
+
+      const { firestoreService } = await import('@/lib/firestoreService');
+
       const [productsData, movementsData, categoriesData, suppliersData] = await Promise.all([
-        api.getProducts(),
-        api.getMovements(),
-        api.getCategories(),
-        api.getSuppliers()
+        firestoreService.getProducts(),
+        firestoreService.getMovements(),
+        firestoreService.getCategories(),
+        firestoreService.getSuppliers()
       ]);
 
       setProducts(productsData || []);
