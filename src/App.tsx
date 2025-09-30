@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, Suspense } from 'react';
-import { createBrowserRouter, RouterProvider, Outlet } from 'react-router-dom';
+import { createBrowserRouter, RouterProvider, Outlet, Navigate } from 'react-router-dom';
 import { StockProvider } from './contexts/StockContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { NavigationProvider } from './contexts/NavigationContext';
@@ -13,7 +13,7 @@ import { SessionStatus } from './components/Layout/SessionStatus';
 import { offlineManager } from './lib/offlineManager';
 
 // Lazy load components
-const Index = React.lazy(() => import('./pages/Index'));
+const Login = React.lazy(() => import('./pages/Login'));
 const Dashboard = React.lazy(() => import('./pages/Dashboard'));
 const Products = React.lazy(() => import('./pages/Products'));
 const Categories = React.lazy(() => import('./pages/Categories'));
@@ -34,17 +34,34 @@ const LoadingSpinner = ({ message = 'กำลังโหลด...' }: { messag
   <PageLoader message={message} size="lg" />
 );
 
+// Protected route wrapper
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  const { currentUser, isLoading } = useAuth();
+
+  if (isLoading) {
+    return <LoadingSpinner message="กำลังตรวจสอบสิทธิ์..." />;
+  }
+
+  if (!currentUser) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return <>{children}</>;
+}
+
 // Layout component for authenticated routes
 function AppLayout() {
   return (
-    <NavigationProvider>
-      <div className="font-thai">
-        <PageTransition>
-          <Outlet />
-        </PageTransition>
-        <Toaster />
-      </div>
-    </NavigationProvider>
+    <ProtectedRoute>
+      <NavigationProvider>
+        <div className="font-thai">
+          <PageTransition>
+            <Outlet />
+          </PageTransition>
+          <Toaster />
+        </div>
+      </NavigationProvider>
+    </ProtectedRoute>
   );
 }
 
@@ -58,16 +75,20 @@ function AppContent() {
   // Create router with future flags
   const router = createBrowserRouter([
     {
+      path: "/login",
+      element: (
+        <Suspense fallback={<LoadingSpinner />}>
+          <Login />
+        </Suspense>
+      ),
+    },
+    {
       path: "/",
       element: <AppLayout />,
       children: [
         {
           index: true,
-          element: (
-            <Suspense fallback={<LoadingSpinner />}>
-              <Index />
-            </Suspense>
-          ),
+          element: <Navigate to="/dashboard" replace />,
         },
         {
           path: "dashboard",

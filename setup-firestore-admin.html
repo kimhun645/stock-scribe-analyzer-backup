@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Setup Admin - Stock Scribe</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      padding: 20px;
+    }
+    .container {
+      background: white;
+      padding: 40px;
+      border-radius: 12px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+      width: 100%;
+      max-width: 500px;
+    }
+    h1 {
+      text-align: center;
+      color: #333;
+      margin-bottom: 10px;
+    }
+    .subtitle {
+      text-align: center;
+      color: #666;
+      margin-bottom: 30px;
+      font-size: 14px;
+    }
+    .form-group {
+      margin-bottom: 20px;
+    }
+    label {
+      display: block;
+      margin-bottom: 8px;
+      color: #333;
+      font-weight: 500;
+    }
+    input {
+      width: 100%;
+      padding: 12px 16px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 14px;
+      transition: border-color 0.3s;
+    }
+    input:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+    button {
+      width: 100%;
+      padding: 14px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+      margin-bottom: 10px;
+    }
+    button:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+    }
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+    .error {
+      background: #fee;
+      color: #c33;
+      padding: 12px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      border-left: 4px solid #c33;
+    }
+    .success {
+      background: #efe;
+      color: #3c3;
+      padding: 12px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      border-left: 4px solid #3c3;
+    }
+    .info {
+      background: #eef;
+      color: #33c;
+      padding: 12px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      border-left: 4px solid #33c;
+      font-size: 14px;
+    }
+    .instructions {
+      background: #f5f5f5;
+      padding: 15px;
+      border-radius: 8px;
+      margin-top: 20px;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+    .instructions strong {
+      color: #667eea;
+    }
+    .instructions ol {
+      margin-left: 20px;
+      margin-top: 10px;
+    }
+    .instructions li {
+      margin-bottom: 8px;
+    }
+    pre {
+      background: #f9f9f9;
+      padding: 10px;
+      border-radius: 4px;
+      overflow-x: auto;
+      font-size: 12px;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Setup Admin User</h1>
+    <p class="subtitle">สร้างบัญชี Admin สำหรับ Stock Scribe</p>
+
+    <div id="message"></div>
+
+    <form id="setupForm">
+      <div class="form-group">
+        <label for="email">อีเมล Admin</label>
+        <input
+          type="email"
+          id="email"
+          value="admin@stockscribe.com"
+          required
+        >
+      </div>
+
+      <div class="form-group">
+        <label for="password">รหัสผ่าน</label>
+        <input
+          type="password"
+          id="password"
+          value="admin123"
+          required
+        >
+      </div>
+
+      <div class="form-group">
+        <label for="displayName">ชื่อแสดง</label>
+        <input
+          type="text"
+          id="displayName"
+          value="Admin"
+          required
+        >
+      </div>
+
+      <button type="submit" id="createBtn">
+        สร้างบัญชี Admin
+      </button>
+    </form>
+
+    <div class="instructions">
+      <strong>ขั้นตอนการใช้งาน:</strong>
+      <ol>
+        <li>กรอกข้อมูลด้านบน (มีค่าเริ่มต้นให้แล้ว)</li>
+        <li>กดปุ่ม "สร้างบัญชี Admin"</li>
+        <li>รอจนกว่าระบบจะสร้างบัญชีเสร็จ</li>
+        <li>ใช้ข้อมูลนี้เข้าสู่ระบบหลัก</li>
+      </ol>
+    </div>
+
+    <div id="userInfo"></div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+    import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+    import { getFirestore, doc, setDoc, getDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCsXLEXI4e_3hoK_Aef6EIOwygxTJGtLek",
+      authDomain: "stock-6e930.firebaseapp.com",
+      projectId: "stock-6e930",
+      storageBucket: "stock-6e930.firebasestorage.app",
+      messagingSenderId: "1067364434675",
+      appId: "1:1067364434675:web:453eed567f011715586d86"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    const form = document.getElementById('setupForm');
+    const createBtn = document.getElementById('createBtn');
+    const messageDiv = document.getElementById('message');
+    const userInfoDiv = document.getElementById('userInfo');
+
+    function showMessage(msg, type = 'error') {
+      messageDiv.innerHTML = `<div class="${type}">${msg}</div>`;
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+      const displayName = document.getElementById('displayName').value.trim();
+
+      if (!email || !password || !displayName) {
+        showMessage('กรุณากรอกข้อมูลให้ครบถ้วน');
+        return;
+      }
+
+      createBtn.disabled = true;
+      createBtn.textContent = 'กำลังสร้างบัญชี...';
+      showMessage('กำลังสร้างบัญชี Admin...', 'info');
+
+      try {
+        let userCredential;
+        let isNewUser = false;
+
+        try {
+          userCredential = await createUserWithEmailAndPassword(auth, email, password);
+          isNewUser = true;
+          showMessage('สร้างบัญชีใหม่สำเร็จ! กำลังตั้งค่า...', 'info');
+        } catch (error) {
+          if (error.code === 'auth/email-already-in-use') {
+            showMessage('อีเมลนี้มีอยู่แล้ว กำลัง login...', 'info');
+            userCredential = await signInWithEmailAndPassword(auth, email, password);
+          } else {
+            throw error;
+          }
+        }
+
+        const user = userCredential.user;
+
+        if (isNewUser) {
+          await updateProfile(user, { displayName });
+        }
+
+        const userDoc = {
+          id: user.uid,
+          email: user.email,
+          displayName: displayName,
+          role: 'admin',
+          isActive: true,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          lastLoginAt: new Date().toISOString()
+        };
+
+        await setDoc(doc(db, 'users', user.uid), userDoc);
+
+        const savedDoc = await getDoc(doc(db, 'users', user.uid));
+
+        if (savedDoc.exists()) {
+          showMessage('✓ สร้างบัญชี Admin สำเร็จ!', 'success');
+
+          userInfoDiv.innerHTML = `
+            <div class="success" style="margin-top: 20px;">
+              <strong>ข้อมูลบัญชี Admin:</strong>
+              <pre>${JSON.stringify(userDoc, null, 2)}</pre>
+              <p style="margin-top: 10px;">คุณสามารถใช้ข้อมูลนี้เข้าสู่ระบบได้แล้ว</p>
+            </div>
+          `;
+
+          createBtn.textContent = 'สร้างบัญชีสำเร็จ ✓';
+        } else {
+          throw new Error('ไม่สามารถยืนยันการสร้างข้อมูลใน Firestore');
+        }
+
+      } catch (error) {
+        console.error('Setup error:', error);
+        let errorMessage = 'เกิดข้อผิดพลาด: ';
+
+        if (error.code === 'auth/invalid-email') {
+          errorMessage += 'รูปแบบอีเมลไม่ถูกต้อง';
+        } else if (error.code === 'auth/weak-password') {
+          errorMessage += 'รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร';
+        } else if (error.code === 'auth/wrong-password') {
+          errorMessage += 'รหัสผ่านไม่ถูกต้อง';
+        } else {
+          errorMessage += error.message;
+        }
+
+        showMessage(errorMessage);
+        createBtn.disabled = false;
+        createBtn.textContent = 'สร้างบัญชี Admin';
+      }
+    });
+  </script>
+</body>
+</html>

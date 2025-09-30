@@ -27,34 +27,32 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
+      console.log('Auth state changed:', user?.email);
       if (user) {
         setFirebaseUser(user);
         try {
-          // ตรวจสอบว่าผู้ใช้มีข้อมูลใน Firestore หรือไม่
           const userData = await userService.getUserById(user.uid);
+          console.log('User data loaded:', userData);
           setCurrentUser(userData);
         } catch (error) {
           console.log('User not found in Firestore, creating new user document...');
-          // ถ้าไม่มีข้อมูลใน Firestore ให้สร้าง user document ใหม่
           try {
             const newUser: User = {
               id: user.uid,
               email: user.email || '',
               displayName: user.displayName || 'ผู้ใช้ใหม่',
-              role: 'user', // กำหนดเป็น user เป็นค่าเริ่มต้น
+              role: 'user',
               isActive: true,
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString(),
               lastLoginAt: new Date().toISOString()
             };
-            
-            // สร้าง user document ใน Firestore
+
             await userService.createUserDocument(newUser);
             setCurrentUser(newUser);
             console.log('User document created successfully');
           } catch (createError) {
             console.error('Error creating user document:', createError);
-            // ถ้าสร้างไม่ได้ ให้ใช้ข้อมูลจาก Firebase Auth
             const fallbackUser: User = {
               id: user.uid,
               email: user.email || '',
@@ -69,6 +67,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           }
         }
       } else {
+        console.log('User logged out');
         setCurrentUser(null);
         setFirebaseUser(null);
       }
@@ -94,31 +93,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const signIn = async (email: string, password: string) => {
     try {
+      console.log('Signing in:', email);
       const user = await userService.signIn(email, password);
+      console.log('Sign in successful:', user);
       setCurrentUser(user);
       setFirebaseUser(await userService.getCurrentUser());
-    } catch (error) {
-      // ถ้า signIn ไม่สำเร็จ ให้ลองใช้ Firebase Auth โดยตรง
-      try {
-        const { signInWithEmailAndPassword } = await import('firebase/auth');
-        const userCredential = await signInWithEmailAndPassword(auth, email, password);
-        setFirebaseUser(userCredential.user);
-        
-        // สร้าง user object จาก Firebase Auth
-        const fallbackUser: User = {
-          id: userCredential.user.uid,
-          email: userCredential.user.email || '',
-          displayName: userCredential.user.displayName || 'ผู้ใช้ใหม่',
-          role: 'user',
-          isActive: true,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          lastLoginAt: new Date().toISOString()
-        };
-        setCurrentUser(fallbackUser);
-      } catch (fallbackError) {
-        throw error; // throw original error
-      }
+    } catch (error: any) {
+      console.error('Sign in error:', error);
+      throw error;
     }
   };
 
